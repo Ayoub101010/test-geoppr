@@ -1,0 +1,20 @@
+.bar-chart-wrapper {
+  background-color: white;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  margin-top: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.chart-title {
+  text-align: center;
+  margin-bottom: 20px;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.bar-chart-canvas {
+  height: 400px;
+}

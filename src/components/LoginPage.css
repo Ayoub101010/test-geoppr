@@ -1,0 +1,199 @@
+.loginpage-wrapper {
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+  font-family: "Segoe UI", sans-serif;
+  overflow: hidden;
+  background-color: #000;
+}
+
+.loginpage-wrapper html,
+.loginpage-wrapper body,
+.loginpage-wrapper #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: "Segoe UI", sans-serif;
+  background-color: #000;
+  overflow: hidden;
+}
+
+.loginpage-wrapper .globe-wrapper {
+  position: fixed;
+  top: 0;
+  left: 380px;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Globe container */
+.loginpage-wrapper #globe-container canvas {
+  position: fixed;
+  top: 0;
+  left: 300px;
+  z-index: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Conteneur principal */
+.loginpage-wrapper .container {
+  position: relative;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  display: flex;
+  width: 800px;
+  height: 400px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  overflow: hidden;
+  left: 450px;
+}
+
+/* Partie gauche */
+.loginpage-wrapper .left-panel {
+  flex: 1;
+  background-color: #36022e;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 30px;
+  position: relative;
+}
+
+.loginpage-wrapper .left-panel img.geoppr {
+  position: absolute;
+  top: 70px;
+  right: 5px;
+  left: 75px;
+  width: 280px;
+  height: auto;
+}
+
+.loginpage-wrapper .left-panel p {
+  font-style: italic;
+  margin-top: 10px;
+  margin-bottom: 80px;
+  color: #ccc;
+  position: absolute;
+}
+
+.loginpage-wrapper .left-panel button {
+  margin-top: 80px;
+  padding: 12px 24px;
+  width: 240px;
+  font-size: 16px;
+  color: white;
+  background: linear-gradient(135deg, #ff6ec4, #7873f5);
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+  z-index: 2;
+  position: relative;
+}
+
+.loginpage-wrapper .left-panel button:hover {
+  background: linear-gradient(135deg, #f94fb0, #5c53e6);
+  transform: scale(1.05);
+}
+
+/* Partie droite */
+.loginpage-wrapper .right-panel {
+  flex: 1;
+  padding: 30px;
+  position: relative;
+  background-color: #f3f6fc;
+}
+
+.loginpage-wrapper .right-panel img.logo {
+  position: absolute;
+  top: 1px;
+  right: 125px;
+  width: 100px;
+  height: auto;
+  right: 150px;
+}
+
+/* Formulaire */
+.loginpage-wrapper .form-group {
+  margin-top: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.loginpage-wrapper .form-group input {
+  padding: 14px;
+  margin-bottom: 16px;
+  border: 2px solid #e91e63;
+  border-radius: 10px;
+  background-color: white;
+  color: #333;
+  font-size: 16px;
+  width: 240px;
+  box-sizing: border-box;
+  text-align: center;
+  transition: border-color 0.3s;
+}
+
+.loginpage-wrapper .form-group input:focus {
+  border-color: #9c27b0;
+  outline: none;
+}
+
+.loginpage-wrapper .form-group input::placeholder {
+  color: #999;
+}
+
+/* Bouton Connexion */
+.loginpage-wrapper .login-btn {
+  background: linear-gradient(to right, #9c27b0, #e91e63);
+  color: white;
+  font-weight: bold;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  width: 240px;
+  box-shadow: 0 4px 12px rgba(233, 30, 99, 0.4);
+  transition: opacity 0.3s;
+}
+
+.loginpage-wrapper .login-btn:hover {
+  opacity: 0.9;
+}
+
+/* Texte complémentaire */
+.loginpage-wrapper .small-text {
+  font-size: 13px;
+  color: #444;
+  text-align: center;
+  margin-top: 8px;
+  font-style: italic;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  user-select: none;
+}
+
+.loginpage-wrapper .forgot {
+  color: #d81b60;
+  text-align: center;
+  margin-top: 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: text-decoration 0.3s, color 0.3s;
+}
+
+.loginpage-wrapper .forgot:hover {
+  text-decoration: underline;
+  color: #ad1457;
+}

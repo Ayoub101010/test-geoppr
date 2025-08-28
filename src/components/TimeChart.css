@@ -1,0 +1,39 @@
+.analytics-section {
+  margin-bottom: 2rem;
+}
+
+.analytics-title {
+  color: #36022e;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.time-filters {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.time-btn {
+  padding: 0.5rem 1rem;
+  border: 2px solid #e1e8ed;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.time-btn.active {
+  background: #2980b9;
+  color: white;
+  border-color: #2980b9;
+}
+
+.chart-container {
+  height: 160px;
+  position: relative;
+}
