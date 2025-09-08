@@ -6,10 +6,10 @@ import InfrastructureDonut from "./InfrastructureDonut";
 import RadarChartComponent from "./RadarChart";
 import BarChart from "./BarChart";
 import MapContainer from "./MapContainer";
-
 import Dashboard from "./DashBoard";
 import GestionUserPage from "./GestionUserPage";
 import "./SuperAdminPage.css";
+import CommuneSelector from './CommuneSelector';
 
 const SuperAdminPage = () => {
   const [currentView, setCurrentView] = useState("map");
@@ -23,19 +23,27 @@ const SuperAdminPage = () => {
     email: "Admin@example.com",
   });
 
-  const goToDashboard = () => {
-    setCurrentView("dashboard");
-  };
+  // État des filtres
   const [filters, setFilters] = useState({
     region: "",
     prefecture: "",
     commune: "",
+    commune_id: "",
     types: new Set(),
   });
+
+  const goToDashboard = () => {
+    setCurrentView("dashboard");
+  };
+
+  const goToUserManagement = () => {
+    setCurrentView("users");
+  };
+
   const getActiveFilters = () => {
     const region = document.getElementById("regionFilter")?.value || "";
     const prefecture = document.getElementById("prefectureFilter")?.value || "";
-    const commune = document.getElementById("communeFilter")?.value || "";
+    const commune_id = document.getElementById("communeFilter")?.value || "";
 
     const checkedTypes = Array.from(
       document.querySelectorAll(
@@ -46,10 +54,11 @@ const SuperAdminPage = () => {
     return {
       region,
       prefecture,
-      commune,
+      commune_id,
       types: new Set(checkedTypes),
     };
   };
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (profileRef.current && !profileRef.current.contains(event.target)) {
@@ -67,37 +76,38 @@ const SuperAdminPage = () => {
     const dropdown = document.querySelector(".export-dropdown");
 
     const toggleDropdown = () => {
-      dropdown.classList.toggle("show");
+      dropdown?.classList.toggle("show");
     };
 
     if (exportBtn) {
       exportBtn.addEventListener("click", toggleDropdown);
     }
 
-    const allInputs = document.querySelectorAll(
-      ".filter-select, .filter-checkbox-group input"
-    );
-
-    const handleChange = () => {
-      setFilters(getActiveFilters());
-    };
-
-    allInputs.forEach((input) => {
-      input.addEventListener("change", handleChange);
-    });
-
-    // Init au montage
-    handleChange();
-
     return () => {
-      allInputs.forEach((input) => {
-        input.removeEventListener("change", handleChange);
-      });
+      if (exportBtn) {
+        exportBtn.removeEventListener("click", toggleDropdown);
+      }
     };
-  }, []);
+  }, [currentView]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('isAuthenticated');
+    window.location.href = '/';
+  };
+
+  const handleEditProfile = () => {
+    setShowEditProfileModal(true);
+    setShowProfileMenu(false);
+  };
+
+  const handleSaveProfile = () => {
+    console.log('Profil sauvegardé:', profile);
+    setShowEditProfileModal(false);
+  };
 
   return (
-    <div className="superadmin-wrapper">
+    <div className="superadmin-wrapper"> {/* Utiliser superadmin-wrapper pour correspondre au CSS */}
       {/* Overlay export */}
       <div className="export-overlay" id="exportOverlay">
         <div className="export-loading">
@@ -109,150 +119,122 @@ const SuperAdminPage = () => {
       {/* Header */}
       <div className="header">
         <div className="logo">
-          <img src={geoLogo} alt="Logo" />
+          <img src={geoLogo} alt="GeoPPR Logo" />
         </div>
+        
         <div className="nav-menu">
           <div
             className={`nav-item ${currentView === "map" ? "active" : ""}`}
             onClick={() => setCurrentView("map")}
           >
-            <i className="fas fa-chart-line"></i> Accueil
+            <i className="fas fa-map"></i> Carte
           </div>
           <div
-            className={`nav-item ${
-              currentView === "dashboard" ? "active" : ""
-            }`}
+            className={`nav-item ${currentView === "dashboard" ? "active" : ""}`}
             onClick={goToDashboard}
           >
-            <i className="fas fa-tachometer-alt"></i> Tableau de bord
+            <i className="fas fa-chart-line"></i> Tableau de bord
           </div>
           <div
             className={`nav-item ${currentView === "users" ? "active" : ""}`}
-            onClick={() => setCurrentView("users")}
+            onClick={goToUserManagement}
           >
-            <i className="fas fa-users-cog"></i> Gestion des Utilisateurs
+            <i className="fas fa-users"></i> Gestion Utilisateurs
           </div>
         </div>
-        <div
-          className="user-profile"
-          onClick={() => setShowProfileMenu(!showProfileMenu)}
-          ref={profileRef}
-          style={{ cursor: "pointer", position: "relative" }}
-        >
-          <div className="profile-pic">SA</div>
+
+        <div className="user-profile" ref={profileRef}>
+          <div 
+            className="profile-pic"
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
+            style={{ cursor: "pointer" }}
+          >
+            SA
+          </div>
           <div className="user-info">
-            <h4>SuperAdmin</h4>
+            <h4>{profile.prenom} {profile.nom}</h4>
+            <span>Super Admin</span>
           </div>
 
           {showProfileMenu && (
             <div className="profile-dropdown">
               <ul>
-                <li onClick={() => setShowEditProfileModal(true)}>
-                  Modifier le profil
+                <li onClick={handleEditProfile}>
+                  <i className="fas fa-edit"></i> Modifier le profil
                 </li>
-
-                <li onClick={() => setShowLogoutModal(true)}>Se déconnecter</li>
+                <li onClick={() => setShowLogoutModal(true)}>
+                  <i className="fas fa-sign-out-alt"></i> Déconnexion
+                </li>
               </ul>
-            </div>
-          )}
-          {showEditProfileModal && (
-            <div className="superadmin-wrapper">
-              <div
-                className="modal-overlay"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="modal-content">
-                  <h2 className="modal-title">Modifier le profil</h2>
-
-                  <form
-                    className="modal-form"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      console.log("Profil modifié :", profile);
-                      setShowEditProfileModal(false);
-                    }}
-                  >
-                    <div className="form-group">
-                      <label htmlFor="nom" className="modal-label">
-                        Nom
-                      </label>
-                      <input
-                        id="nom"
-                        type="text"
-                        value={profile.nom}
-                        className="modal-input"
-                        onChange={(e) =>
-                          setProfile({ ...profile, nom: e.target.value })
-                        }
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="prenom" className="modal-label">
-                        Prénom
-                      </label>
-                      <input
-                        id="prenom"
-                        type="text"
-                        value={profile.prenom}
-                        className="modal-input"
-                        onChange={(e) =>
-                          setProfile({ ...profile, prenom: e.target.value })
-                        }
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="email" className="modal-label">
-                        Email
-                      </label>
-                      <input
-                        id="email"
-                        type="email"
-                        value={profile.email}
-                        className="modal-input"
-                        onChange={(e) =>
-                          setProfile({ ...profile, email: e.target.value })
-                        }
-                      />
-                    </div>
-
-                    <div className="modal-buttons">
-                      <button type="submit">Enregistrer</button>
-                      <button
-                        type="button"
-                        onClick={() => setShowEditProfileModal(false)}
-                      >
-                        Annuler
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {showLogoutModal && (
-            <div className="modal-overlay" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-content">
-                <h3>Êtes-vous sûr de vouloir vous déconnecter ?</h3>
-                <div className="modal-buttons">
-                  <button
-                    onClick={() => {
-                      setShowLogoutModal(false);
-                      // ici tu rediriges vers LoginPage
-                      window.location.href = "/";
-                    }}
-                  >
-                    Oui
-                  </button>
-                  <button onClick={() => setShowLogoutModal(false)}>Non</button>
-                </div>
-              </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Modals */}
+      {showEditProfileModal && (
+        <div className="modal-overlay" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content">
+            <h2 className="modal-title">Modifier le profil</h2>
+            <form
+              className="modal-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveProfile();
+              }}
+            >
+              <div className="form-group">
+                <label htmlFor="nom" className="modal-label">Nom</label>
+                <input
+                  id="nom"
+                  type="text"
+                  value={profile.nom}
+                  className="modal-input"
+                  onChange={(e) => setProfile({ ...profile, nom: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="prenom" className="modal-label">Prénom</label>
+                <input
+                  id="prenom"
+                  type="text"
+                  value={profile.prenom}
+                  className="modal-input"
+                  onChange={(e) => setProfile({ ...profile, prenom: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="email" className="modal-label">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  value={profile.email}
+                  className="modal-input"
+                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                />
+              </div>
+              <div className="modal-buttons">
+                <button type="submit">Enregistrer</button>
+                <button type="button" onClick={() => setShowEditProfileModal(false)}>
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showLogoutModal && (
+        <div className="modal-overlay" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content">
+            <h3>Êtes-vous sûr de vouloir vous déconnecter ?</h3>
+            <div className="modal-buttons">
+              <button onClick={handleLogout}>Oui</button>
+              <button onClick={() => setShowLogoutModal(false)}>Non</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Contenu dynamique selon la vue */}
       {currentView === "map" && (
@@ -287,9 +269,20 @@ const SuperAdminPage = () => {
               </div>
               <div className="filter-group">
                 <div className="filter-label">Commune</div>
-                <select className="filter-select" id="communeFilter">
-                  <option value="">Les Communes</option>
-                </select>
+                <CommuneSelector onCommuneChange={(communeId) => {
+                  console.log('Commune changée:', communeId);
+                  
+                  setFilters(prev => ({
+                    ...prev, 
+                    commune_id: communeId
+                  }));
+                  
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('communeFilterChanged', {
+                      detail: { commune_id: communeId }
+                    }));
+                  }, 100);
+                }} />
               </div>
             </div>
 
@@ -299,37 +292,36 @@ const SuperAdminPage = () => {
                 <i className="fas fa-road"></i> Type de géométrie
               </div>
               <div className="filter-checkbox-group">
-                {[
-                  ["pistes", "Pistes"],
-                  ["chaussees", "Chaussées"],
-                  ["buses", "Buses"],
-                  ["dalots", "Dalots"],
-                  ["ponts", "Ponts"],
-                  ["passages", "Passages submersibles"],
-                  ["bacs", "Bacs"],
-                ].map(([id, label]) => (
-                  <div className="checkbox-item" key={id}>
-                    <input type="checkbox" id={id} defaultChecked />
-                    <label htmlFor={id}>{label}</label>
-                  </div>
-                ))}
+                <div className="checkbox-item">
+                  <input type="checkbox" id="pistes" defaultChecked />
+                  <label htmlFor="pistes">Pistes</label>
+                </div>
+                <div className="checkbox-item">
+                  <input type="checkbox" id="chaussees" defaultChecked />
+                  <label htmlFor="chaussees">Chaussées</label>
+                </div>
               </div>
             </div>
 
             {/* Filtres infrastructures */}
             <div className="filter-section">
               <div className="filter-title">
-                <i className="fas fa-building"></i> Infrastructures rurales
+                <i className="fas fa-building"></i> Infrastructures
               </div>
               <div className="filter-checkbox-group">
                 {[
+                  ["buses", "Buses"],
+                  ["dalots", "Dalots"],
+                  ["ponts", "Ponts"],
+                  ["passages_submersibles", "Passages submersibles"],
+                  ["bacs", "Bacs"],
                   ["localites", "Localités"],
                   ["ecoles", "Écoles"],
                   ["marches", "Marchés"],
-                  ["administratifs", "Bâtiments administratifs"],
-                  ["hydrauliques", "Infrastructures hydrauliques"],
-                  ["sante", "Services de santé"],
-                  ["autres", "Autres infrastructures"],
+                  ["batiments_administratifs", "Bâtiments administratifs"],
+                  ["infrastructures_hydrauliques", "Infrastructures hydrauliques"],
+                  ["services_santes", "Services de santé"],
+                  ["autres_infrastructures", "Autres infrastructures"],
                 ].map(([id, label]) => (
                   <div className="checkbox-item" key={id}>
                     <input type="checkbox" id={id} defaultChecked />
@@ -340,20 +332,45 @@ const SuperAdminPage = () => {
             </div>
           </div>
 
-          {/* Carte */}
-          <MapContainer filters={filters} />
-          {/* Right Panel */}
+          {/* Contenu principal */}
+          <div className="map-container">
+            <MapContainer />
+          </div>
+
+          {/* Panel de droite */}
           <div className="right-panel">
             <TimeChart />
-            <InfrastructureDonut filters={filters} />
+            <InfrastructureDonut />
             <RadarChartComponent />
             <BarChart />
           </div>
         </div>
       )}
-      {currentView === "dashboard" && <Dashboard />}
 
-      {currentView === "users" && <GestionUserPage />}
+      {currentView === "dashboard" && (
+        <div className="dashboard-container">
+          <div className="charts-grid">
+            <div className="chart-item">
+              <TimeChart />
+            </div>
+            <div className="chart-item">
+              <InfrastructureDonut />
+            </div>
+            <div className="chart-item">
+              <RadarChartComponent />
+            </div>
+            <div className="chart-item">
+              <BarChart />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {currentView === "users" && (
+        <div className="users-container">
+          <GestionUserPage />
+        </div>
+      )}
     </div>
   );
 };

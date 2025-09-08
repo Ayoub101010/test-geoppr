@@ -1,6 +1,8 @@
-import React, { useEffect, useRef } from "react";
+// src/components/LoginPage.js
+import React, { useEffect, useRef, useState } from "react";
 import Globe from "globe.gl";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "./AuthContext"; // AJOUT: Import du context d'auth
 
 import "./LoginPage.css";
 import geoLogo from "../assets/GeoPPR_Logo.png";
@@ -9,12 +11,20 @@ import ndgrLogo from "../assets/NDGR_Logo.png";
 export default function LoginPage() {
   const globeEl = useRef();
   const navigate = useNavigate();
+  const { login } = useAuth(); // AJOUT: Récupération de la fonction login
+  
+  // AJOUT: États pour gérer le formulaire
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handlePublicAccess = () => {
-    navigate("/user"); // chemin vers UserPage
+    navigate("/user"); // Accès public vers UserPage
   };
+
   useEffect(() => {
-    document.body.style.backgroundColor = "#000"; // Forcer le fond sombre
+    document.body.style.backgroundColor = "#000";
 
     const globe = Globe()(globeEl.current)
       .globeImageUrl("//unpkg.com/three-globe/example/img/earth-night.jpg")
@@ -33,21 +43,45 @@ export default function LoginPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleLogin = () => {
-    // Tu peux ajouter ici ta logique d'authentification plus tard
-    navigate("/superadmin");
+  // MODIFICATION: Remplacer votre handleLogin existant par celui-ci
+  const handleLogin = async () => {
+    // Réinitialiser l'erreur
+    setError("");
+    
+    // Validation des champs
+    if (!email || !password) {
+      setError("Veuillez remplir tous les champs.");
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      const result = await login(email, password);
+      
+      if (result.success) {
+        // Redirection selon le rôle
+        if (result.user.role === 'super_admin') {
+          navigate("/superadmin");
+        } else {
+          navigate("/user");
+        }
+      } else {
+        setError(result.error || "Identifiants incorrects");
+      }
+    } catch (err) {
+      setError("Erreur de connexion. Veuillez réessayer.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  /*const handleLogin = () => {
-    const user = document.getElementById("username").value;
-    const pass = document.getElementById("password").value;
-
-    if (!user || !pass) {
-      alert("Veuillez remplir tous les champs.");
-    } else {
-      alert("Connexion en cours pour " + user);
+  // AJOUT: Gestion de la touche Entrée
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleLogin();
     }
-  };*/
+  };
 
   return (
     <>
@@ -68,21 +102,53 @@ export default function LoginPage() {
           <div className="right-panel">
             <img src={ndgrLogo} alt="Logo NDGR" className="logo" />
             <div className="form-group">
+              {/* MODIFICATION: Remplacer vos inputs existants */}
               <input
                 id="username"
-                type="text"
-                placeholder="Nom d’utilisateur"
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyPress={handleKeyPress}
+                disabled={loading}
               />
-              <input id="password" type="password" placeholder="Mot de passe" />
-              <button className="login-btn" onClick={handleLogin}>
-                Se connecter
+              <input 
+                id="password" 
+                type="password" 
+                placeholder="Mot de passe"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={handleKeyPress}
+                disabled={loading}
+              />
+              
+              {/* AJOUT: Affichage des erreurs */}
+              {error && (
+                <div style={{ 
+                  color: '#ff4444', 
+                  fontSize: '14px', 
+                  marginTop: '10px',
+                  textAlign: 'center' 
+                }}>
+                  {error}
+                </div>
+              )}
+              
+              {/* MODIFICATION: Bouton avec état de chargement */}
+              <button 
+                className="login-btn" 
+                onClick={handleLogin}
+                disabled={loading}
+              >
+                {loading ? "Connexion..." : "Se connecter"}
               </button>
+              
               <div className="small-text">
                 "Connexion réservée aux agents PPR"
               </div>
               <div
                 className="forgot"
-                onClick={() => alert("Lien de récupération")}
+                onClick={() => alert("Contactez l'administrateur pour réinitialiser votre mot de passe")}
               >
                 Mot de passe oublié
               </div>

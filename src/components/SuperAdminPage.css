@@ -584,3 +584,111 @@ body {
   border-radius: 6px;
   border: none;
 }
+superadmin-wrapper {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-container {
+  height: calc(100vh - 80px); /* Ajustez selon la hauteur de votre header */
+  overflow: hidden;
+  display: flex;
+}
+
+/* Sidebar avec scroll interne seulement */
+.sidebar {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+}
+
+/* Panel de droite avec scroll interne seulement */
+.right-panel {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+}
+
+/* Zone de carte sans scroll */
+.map-container {
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Scrollbars personnalisés pour les sidebars */
+.sidebar::-webkit-scrollbar,
+.right-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track,
+.right-panel::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.right-panel::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover,
+.right-panel::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+/* Header de carte optimisé */
+.map-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px; /* ✅ Réduit le padding */
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 14px; /* ✅ Police plus petite */
+  height: 50px; /* ✅ Hauteur fixe réduite */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.map-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px; /* ✅ Titre plus compact */
+}
+
+.map-stats {
+  display: flex;
+  gap: 15px; /* ✅ Réduit l'espacement */
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-number {
+  font-size: 16px; /* ✅ Plus petit */
+  font-weight: bold;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 10px; /* ✅ Plus petit */
+  opacity: 0.9;
+}
+
+.export-btn {
+  padding: 6px 12px; /* ✅ Bouton plus compact */
+  font-size: 12px;
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
