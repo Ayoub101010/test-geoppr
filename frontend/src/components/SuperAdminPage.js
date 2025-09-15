@@ -10,6 +10,7 @@ import Dashboard from "./DashBoard";
 import GestionUserPage from "./GestionUserPage";
 import "./SuperAdminPage.css";
 import CommuneSelector from './CommuneSelector';
+import GeographicFilter from './GeographicFilterWithZoom';
 
 const SuperAdminPage = () => {
   const [currentView, setCurrentView] = useState("map");
@@ -244,45 +245,42 @@ const SuperAdminPage = () => {
             {/* Filtres géographiques */}
             <div className="filter-section">
               <div className="filter-title">
-                <i className="fas fa-map-marker-alt"></i>
-                Localisation géographique
+                <i className="fas fa-map-marker-alt"></i> Localisation
               </div>
-              <div className="filter-group">
-                <div className="filter-label">Région</div>
-                <select className="filter-select" id="regionFilter">
-                  <option value="">Les régions</option>
-                  <option value="conakry">Conakry</option>
-                  <option value="boke">Boké</option>
-                  <option value="kindia">Kindia</option>
-                  <option value="mamou">Mamou</option>
-                  <option value="labe">Labé</option>
-                  <option value="faranah">Faranah</option>
-                  <option value="kankan">Kankan</option>
-                  <option value="nzerekore">Nzérékoré</option>
-                </select>
-              </div>
-              <div className="filter-group">
-                <div className="filter-label">Préfecture</div>
-                <select className="filter-select" id="prefectureFilter">
-                  <option value="">Les Préfectures</option>
-                </select>
-              </div>
-              <div className="filter-group">
-                <div className="filter-label">Commune</div>
-                <CommuneSelector onCommuneChange={(communeId) => {
-                  console.log('Commune changée:', communeId);
-                  
-                  setFilters(prev => ({
-                    ...prev, 
-                    commune_id: communeId
-                  }));
-                  
-                  setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent('communeFilterChanged', {
-                      detail: { commune_id: communeId }
+              <div className="filter-row">
+                <GeographicFilter
+                  onFiltersChange={(geoFilters) => {
+                    // ✅ PROTECTION ANTI-BOUCLE
+                    const currentFilters = {
+                      region_id: filters.region_id,
+                      prefecture_id: filters.prefecture_id,
+                      commune_id: filters.commune_id
+                    };
+                    
+                    if (JSON.stringify(geoFilters) === JSON.stringify(currentFilters)) {
+                      return; // Pas de changement, éviter la boucle
+                    }
+                    
+                    setFilters(prev => ({
+                      ...prev,
+                      region_id: geoFilters.region_id,
+                      prefecture_id: geoFilters.prefecture_id,
+                      commune_id: geoFilters.commune_id
                     }));
-                  }, 100);
-                }} />
+                    
+                    setTimeout(() => {
+                      window.dispatchEvent(new CustomEvent('geographicFilterChanged', {
+                        detail: geoFilters
+                      }));
+                    }, 100);
+                  }}
+                  initialFilters={{
+                    region_id: filters.region_id,
+                    prefecture_id: filters.prefecture_id,
+                    commune_id: filters.commune_id
+                  }}
+                  showLabels={true}
+                />
               </div>
             </div>
 
@@ -347,24 +345,7 @@ const SuperAdminPage = () => {
         </div>
       )}
 
-      {currentView === "dashboard" && (
-        <div className="dashboard-container">
-          <div className="charts-grid">
-            <div className="chart-item">
-              <TimeChart />
-            </div>
-            <div className="chart-item">
-              <InfrastructureDonut />
-            </div>
-            <div className="chart-item">
-              <RadarChartComponent />
-            </div>
-            <div className="chart-item">
-              <BarChart />
-            </div>
-          </div>
-        </div>
-      )}
+      {currentView === "dashboard" && <Dashboard />}
 
       {currentView === "users" && (
         <div className="users-container">

@@ -22,11 +22,24 @@ class PrefectureSerializer(GeoFeatureModelSerializer):
         fields = '__all__'
 
 class CommuneRuraleSerializer(GeoFeatureModelSerializer):
+    # Ajouter ces lignes pour afficher les infos hiérarchiques
+    prefecture_nom = serializers.CharField(source='prefectures_id.nom', read_only=True)
+    prefecture_id = serializers.IntegerField(source='prefectures_id.id', read_only=True)
+    region_nom = serializers.CharField(source='prefectures_id.regions_id.nom', read_only=True)
+    region_id = serializers.IntegerField(source='prefectures_id.regions_id.id', read_only=True)
+    localisation_complete = serializers.SerializerMethodField()
+    
     class Meta:
         model = CommuneRurale
         geo_field = "geom"
         fields = '__all__'
-
+    
+    def get_localisation_complete(self, obj):
+        """Format: Commune, Préfecture, Région"""
+        prefecture = obj.prefectures_id.nom if obj.prefectures_id else "N/A"
+        region = obj.prefectures_id.regions_id.nom if obj.prefectures_id and obj.prefectures_id.regions_id else "N/A"
+        return f"{obj.nom}, {prefecture}, {region}"
+    
 class ServicesSantesSerializer(GeoFeatureModelSerializer):
     class Meta:
         model = ServicesSantes
@@ -225,12 +238,7 @@ class PassagesSubmersiblesSerializer(GeoFeatureModelSerializer):
             
         }
     
-    def to_internal_value(self, data):
-        if 'x_debut_passage_submersible' in data and 'y_debut_passage_submersible' in data:
-            x = float(data.pop('x_debut_passage_submersible'))
-            y = float(data.pop('y_debut_passage_submersible'))
-            data['geom'] = Point(x, y, srid=4326)
-        return super().to_internal_value(data)
+    
 
 class PontsSerializer(GeoFeatureModelSerializer):
     class Meta:
@@ -250,9 +258,17 @@ class PontsSerializer(GeoFeatureModelSerializer):
         return super().to_internal_value(data)
 
 class LoginSerializer(serializers.ModelSerializer):
+    #  ces champs en lecture seule
+    commune_complete = serializers.ReadOnlyField()
+    commune_nom = serializers.CharField(source='communes_rurales_id.nom', read_only=True)
+    prefecture_nom = serializers.CharField(source='communes_rurales_id.prefectures_id.nom', read_only=True)
+    region_nom = serializers.CharField(source='communes_rurales_id.prefectures_id.regions_id.nom', read_only=True)
+    
     class Meta:
         model = Login
-        fields = ['id', 'nom', 'prenom', 'mail', 'role']
+        fields = ['id', 'nom', 'prenom', 'mail', 'role', 'communes_rurales_id', 
+                 'commune_complete', 'commune_nom', 'prefecture_nom', 'region_nom']
+
 
 class PisteSerializer(GeoFeatureModelSerializer):
     class Meta:
@@ -268,3 +284,83 @@ class PisteSerializer(GeoFeatureModelSerializer):
             geom.srid = 32628  # forcer SRID UTM
             data['geom'] = geom
         return super().to_internal_value(data)
+    
+class UserCreateSerializer(serializers.ModelSerializer):
+    """Serializer pour créer un nouvel utilisateur avec commune"""
+    communes_rurales_id = serializers.PrimaryKeyRelatedField(
+    queryset=CommuneRurale.objects.all(),
+    required=False,
+    allow_null=True
+)
+
+    
+    class Meta:
+        model = Login
+        fields = ['nom', 'prenom', 'mail', 'mdp', 'role', 'communes_rurales_id']
+    
+    
+    def validate_role(self, value):
+        """Vérifier que le rôle est valide"""
+        valid_roles = ['user', 'admin', 'super_admin']
+        if value not in valid_roles:
+            raise serializers.ValidationError(f"Rôle invalide. Valeurs autorisées : {valid_roles}")
+        return value
+    
+    def validate_mail(self, value):
+        """Vérifier que l'email est unique"""
+        if Login.objects.filter(mail=value).exists():
+            raise serializers.ValidationError("Cette adresse email est déjà utilisée.")
+        return value
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """Serializer pour modifier un utilisateur existant"""
+    communes_rurales_id = serializers.IntegerField(required=False,allow_null=True)
+    
+    class Meta:
+        model = Login
+        fields = ['nom', 'prenom', 'mail', 'role', 'communes_rurales_id']
+    
+    def validate_communes_rurales_id(self, value):
+        """Vérifier que la commune existe si fournie"""
+        if value is not None:
+            try:
+                CommuneRurale.objects.get(id=value)
+                return value
+            except CommuneRurale.DoesNotExist:
+                raise serializers.ValidationError("Cette commune n'existe pas.")
+        return value
+    
+    def validate_mail(self, value):
+        """Vérifier que l'email est unique lors de la modification"""
+        # Récupérer l'instance en cours de modification
+        instance = getattr(self, 'instance', None)
+        
+        # Si l'email est différent de l'actuel, vérifier l'unicité
+        if instance and instance.mail != value:
+            if Login.objects.filter(mail=value).exists():
+                raise serializers.ValidationError("Cette adresse email est déjà utilisée.")
+        
+        return value
+    
+    def validate_role(self, value):
+        """Vérifier que le rôle est valide"""
+        valid_roles = ['user', 'admin', 'super_admin']
+        if value and value not in valid_roles:
+            raise serializers.ValidationError(f"Rôle invalide. Valeurs autorisées : {valid_roles}")
+        return value
+
+class CommuneSearchSerializer(serializers.ModelSerializer):
+    """Serializer pour la recherche de communes avec infos complètes"""
+    prefecture_nom = serializers.CharField(source='prefectures_id.nom', read_only=True)
+    region_nom = serializers.CharField(source='prefectures_id.regions_id.nom', read_only=True)
+    localisation_complete = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CommuneRurale
+        fields = ['id', 'nom', 'prefecture_nom', 'region_nom', 'localisation_complete']
+    
+    def get_localisation_complete(self, obj):
+        """Format: Commune, Préfecture, Région"""
+        prefecture = obj.prefectures_id.nom if obj.prefectures_id else "N/A"
+        region = obj.prefectures_id.regions_id.nom if obj.prefectures_id and obj.prefectures_id.regions_id else "N/A"
+        return f"{obj.nom}, {prefecture}, {region}"

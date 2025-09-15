@@ -1,19 +1,33 @@
-from django.urls import path
-from api.views import LoginAPIView  # import absolu recommandé
-from .views import PisteListCreateAPIView
+# api/urls.py - Version corrigée sans doublons
+from django.urls import path, include
 from .views import (
     LoginAPIView, PisteListCreateAPIView,
     ServicesSantesListCreateAPIView, AutresInfrastructuresListCreateAPIView, BacsListCreateAPIView,
     BatimentsAdministratifsListCreateAPIView, BusesListCreateAPIView, DalotsListCreateAPIView,
     EcolesListCreateAPIView, InfrastructuresHydrauliquesListCreateAPIView, LocalitesListCreateAPIView,
-    MarchesListCreateAPIView, PassagesSubmersiblesListCreateAPIView, PontsListCreateAPIView, CommunesRuralesListCreateAPIView, PrefecturesListCreateAPIView, RegionsListCreateAPIView
+    MarchesListCreateAPIView, PassagesSubmersiblesListCreateAPIView, PontsListCreateAPIView,
+    CommunesRuralesListCreateAPIView, PrefecturesListCreateAPIView, RegionsListCreateAPIView,
+    UserManagementAPIView,
 )
-from django.contrib import admin
-from django.urls import path, include
 from .temporal_views import TemporalAnalysisAPIView
+from .geographic_api import GeographyHierarchyAPIView, ZoomToLocationAPIView
 
 urlpatterns = [
+    #  APIs principales
     path('api/login/', LoginAPIView.as_view(), name='api-login'),
+    path('api/users/', UserManagementAPIView.as_view(), name='api-user-management'),
+    path('api/users/<int:user_id>/', UserManagementAPIView.as_view(), name='api-user-detail'),
+
+    #  APIs géographiques
+    path('api/geography/hierarchy/', GeographyHierarchyAPIView.as_view(), name='api-geography-hierarchy'),
+    path('api/geography/zoom/', ZoomToLocationAPIView.as_view(), name='api-geography-zoom'),
+
+    #  APIs de données géographiques
+    path('api/regions/', RegionsListCreateAPIView.as_view(), name='api-regions'),
+    path('api/prefectures/', PrefecturesListCreateAPIView.as_view(), name='api-prefectures'),
+    path('api/communes_rurales/', CommunesRuralesListCreateAPIView.as_view(), name='api-communes-rurales'),
+
+    #  APIs d'infrastructures
     path('api/pistes/', PisteListCreateAPIView.as_view(), name='api-pistes'),
     path('api/services_santes/', ServicesSantesListCreateAPIView.as_view(), name='api-services-santes'),
     path('api/autres_infrastructures/', AutresInfrastructuresListCreateAPIView.as_view(), name='api-autres-infrastructures'),
@@ -27,12 +41,10 @@ urlpatterns = [
     path('api/marches/', MarchesListCreateAPIView.as_view(), name='api-marches'),
     path('api/passages_submersibles/', PassagesSubmersiblesListCreateAPIView.as_view(), name='api-passages-submersibles'),
     path('api/ponts/', PontsListCreateAPIView.as_view(), name='api-ponts'),
-    path('api/regions/', RegionsListCreateAPIView.as_view(), name='api-regions'),
-    path('api/prefectures/', PrefecturesListCreateAPIView.as_view(), name='api-prefectures'),
-    path('api/communes_rurales/', CommunesRuralesListCreateAPIView.as_view(), name='api-communes-rurales'),
-    path('api/temporal-analysis/', TemporalAnalysisAPIView.as_view(), name='api-temporal-analysis'),
-  
-    
-    path('', include('api.spatial_urls')),
 
+    #  APIs d'analyse
+    path('api/temporal-analysis/', TemporalAnalysisAPIView.as_view(), name='api-temporal-analysis'),
+    
+    #  URLs spatiales (sans doublon)
+    path('', include('api.spatial_urls')),
 ]

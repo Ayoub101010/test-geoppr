@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 
-const CommuneSelector = ({ onCommuneChange }) => {
+const CommuneSelector = ({ selectedCommune, onCommuneSelect }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [communes, setCommunes] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedCommune, setSelectedCommune] = useState(null);
+  const [selectedCommuneData, setSelectedCommuneData] = useState(null);
 
-  // Test direct avec fetch (contourne le wrapper API)
+  // Recherche des communes
   const searchCommunes = async (query) => {
     if (!query || query.length < 2) {
       setCommunes([]);
@@ -15,22 +15,24 @@ const CommuneSelector = ({ onCommuneChange }) => {
 
     setLoading(true);
     try {
-      console.log(`Recherche directe: "${query}"`);
+      console.log(`Recherche communes: "${query}"`);
       
-      const response = await fetch(`http://localhost:8000/api/communes/search/?q=${encodeURIComponent(query)}`);
+      // Utiliser l'API communes_rurales avec filtre q
+     const response = await fetch(`http://localhost:8000/api/communes/search/?q=${encodeURIComponent(query)}`);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
       
       const data = await response.json();
-      console.log('Réponse API:', data);
-      
+      console.log('📋 Données reçues:', data);
+      console.log('📋 Type de data.communes:', typeof data.communes, Array.isArray(data.communes));
+
       if (data.communes && Array.isArray(data.communes)) {
+        console.log(`✅ ${data.communes.length} communes trouvées`);
         setCommunes(data.communes);
-        console.log(`${data.communes.length} communes trouvées`);
       } else {
-        console.warn('Format de réponse inattendu:', data);
+        console.log('❌ Pas de communes dans la réponse');
         setCommunes([]);
       }
       
@@ -42,31 +44,44 @@ const CommuneSelector = ({ onCommuneChange }) => {
     }
   };
 
-  // Déclencher la recherche quand on tape
+  // Déclencher la recherche avec délai
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       searchCommunes(searchTerm);
-    }, 300); // Délai pour éviter trop de requêtes
+    }, 300);
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
+
+  // Mettre à jour quand selectedCommune change depuis le parent
+  useEffect(() => {
+    if (selectedCommune && communes.length > 0) {
+      const commune = communes.find(c => c.id === parseInt(selectedCommune));
+      if (commune) {
+        setSelectedCommuneData(commune);
+        setSearchTerm(commune.nom);
+      }
+    }
+    // Supprimé la partie qui réinitialise searchTerm
+  }, [selectedCommune, communes]);
 
   const handleInputChange = (event) => {
     const value = event.target.value;
     setSearchTerm(value);
     
     // Reset selection si on modifie
-    if (selectedCommune) {
-      setSelectedCommune(null);
-      onCommuneChange('');
+    if (selectedCommuneData && value !== selectedCommuneData.nom) {
+      setSelectedCommuneData(null);
+      onCommuneSelect('');
     }
   };
 
   const handleCommuneSelect = (commune) => {
     console.log('Commune sélectionnée:', commune);
-    setSelectedCommune(commune);
+    setSelectedCommuneData(commune);
     setSearchTerm(commune.nom);
-    onCommuneChange(commune.id);
+    onCommuneSelect(commune.id);
+    setCommunes([]); // Fermer la liste
     
     // Zoom si disponible
     if (window.zoomToCommune) {
@@ -75,10 +90,10 @@ const CommuneSelector = ({ onCommuneChange }) => {
   };
 
   const clearSelection = () => {
-    setSelectedCommune(null);
+    setSelectedCommuneData(null);
     setSearchTerm('');
     setCommunes([]);
-    onCommuneChange('');
+    onCommuneSelect('');
   };
 
   return (
@@ -90,15 +105,19 @@ const CommuneSelector = ({ onCommuneChange }) => {
           placeholder="Rechercher une commune..."
           value={searchTerm}
           onChange={handleInputChange}
-          className="filter-select"
           style={{ 
-            paddingRight: selectedCommune ? '30px' : '10px',
-            background: selectedCommune ? '#e8f5e8' : 'white'
+            width: '100%',
+            padding: '0.7rem',
+            paddingRight: selectedCommuneData ? '35px' : '12px',
+            border: '1px solid #cbd5e0',
+            borderRadius: '6px',
+            fontSize: '1rem',
+            background: selectedCommuneData ? '#e8f5e8' : 'white'
           }}
           disabled={loading}
         />
         
-        {selectedCommune && (
+        {selectedCommuneData && (
           <button
             onClick={clearSelection}
             style={{
@@ -108,7 +127,12 @@ const CommuneSelector = ({ onCommuneChange }) => {
               border: 'none',
               cursor: 'pointer',
               color: '#666',
-              fontSize: '16px'
+              fontSize: '16px',
+              width: '20px',
+              height: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
             ×
@@ -116,8 +140,29 @@ const CommuneSelector = ({ onCommuneChange }) => {
         )}
       </div>
 
+      {/* Informations commune sélectionnée */}
+      {selectedCommuneData && (
+        <div style={{
+          marginTop: '8px',
+          padding: '8px',
+          background: '#f0f8f0',
+          border: '1px solid #d4edda',
+          borderRadius: '4px',
+          fontSize: '0.9rem'
+        }}>
+          <div style={{ fontWeight: '500', color: '#155724' }}>
+            📍 {selectedCommuneData.nom}
+          </div>
+          {selectedCommuneData.prefecture && (
+            <div style={{ color: '#6c757d', fontSize: '0.8rem' }}>
+              {selectedCommuneData.prefecture} • {selectedCommuneData.region}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Liste des résultats */}
-      {searchTerm && !selectedCommune && (
+      {searchTerm && !selectedCommuneData && (
         <div style={{
           position: 'absolute',
           top: '100%',
@@ -168,15 +213,14 @@ const CommuneSelector = ({ onCommuneChange }) => {
       {/* Statut */}
       <div style={{ fontSize: '11px', marginTop: '4px', color: '#666' }}>
         {loading && 'Recherche...'}
-        {selectedCommune && `${selectedCommune.nom} (${selectedCommune.prefecture})`}
-        {!loading && !selectedCommune && searchTerm.length < 2 && 'Tapez au moins 2 caractères'}
+        {!loading && !selectedCommuneData && searchTerm.length > 0 && searchTerm.length < 2 && 'Tapez au moins 2 caractères'}
       </div>
 
       {/* Input caché pour compatibilité */}
       <input
         type="hidden"
         id="communeFilter"
-        value={selectedCommune ? selectedCommune.id : ''}
+        value={selectedCommuneData ? selectedCommuneData.id : ''}
         readOnly
       />
     </div>

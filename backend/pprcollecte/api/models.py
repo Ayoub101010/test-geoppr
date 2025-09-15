@@ -6,6 +6,16 @@ class Login(models.Model):
     mail = models.TextField(unique=True)
     mdp = models.TextField()
     role = models.TextField()
+    
+    # NOUVELLE LIGNE Ã€ AJOUTER :
+    communes_rurales_id = models.ForeignKey(
+        'CommuneRurale',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='communes_rurales_id',
+        related_name='utilisateurs'
+    )
 
     class Meta:
         db_table = 'login'
@@ -13,6 +23,26 @@ class Login(models.Model):
 
     def __str__(self):
         return f"{self.nom} {self.prenom} ({self.mail})"
+
+    # NOUVELLES MÃ‰THODES Ã€ AJOUTER :
+    @property
+    def commune_complete(self):
+        """Retourne les informations complÃ¨tes de localisation"""
+        if not self.communes_rurales_id:
+            return None
+        
+        commune = self.communes_rurales_id
+        prefecture = commune.prefectures_id if commune.prefectures_id else None
+        region = prefecture.regions_id if prefecture and prefecture.regions_id else None
+        
+        return {
+            'commune': commune.nom,
+            'commune_id': commune.id,
+            'prefecture': prefecture.nom if prefecture else None,
+            'prefecture_id': prefecture.id if prefecture else None,
+            'region': region.nom if region else None,
+            'region_id': region.id if region else None
+        }
 
 
 from django.contrib.gis.db import models
@@ -82,7 +112,7 @@ class Piste(models.Model):
         db_column='communes_rurales_id'
     )
     code_piste = models.CharField(max_length=50, unique=True, null=True, blank=True)  # texte
-    geom = models.MultiLineStringField(srid=32628, null=True, blank=True)  # aligné avec PostGIS
+    geom = models.MultiLineStringField(srid=32628, null=True, blank=True)  # alignÃ© avec PostGIS
     heure_debut = models.TimeField(null=True, blank=True)  # time dans PostgreSQL
     heure_fin = models.TimeField(null=True, blank=True)
     nom_origine_piste = models.TextField(null=True, blank=True)
@@ -118,7 +148,7 @@ class Piste(models.Model):
         managed = True
 
     def __str__(self):
-        return f"Piste {self.code_piste} - {self.nom_origine_piste} → {self.nom_destination_piste}"
+        return f"Piste {self.code_piste} - {self.nom_origine_piste} â†’ {self.nom_destination_piste}"
 
 
 
@@ -150,6 +180,14 @@ class ServicesSantes(models.Model):
     blank=True,
     db_column='login_id'
 )
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='commune_id',
+        related_name='services_santes'
+    )
 
 
 
@@ -188,6 +226,14 @@ class AutresInfrastructures(models.Model):
     blank=True,
     db_column='login_id'
 )
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='commune_id',
+        related_name='autres_infrastructures'
+    )
 
 
 
@@ -229,6 +275,14 @@ class Bacs(models.Model):
     blank=True,
     db_column='login_id'
 )
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='commune_id',
+        related_name='bacs'
+    )
 
 
 
@@ -268,6 +322,14 @@ class BatimentsAdministratifs(models.Model):
     blank=True,
     db_column='login_id'
 )
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='commune_id',
+        related_name='batiments_administratifs'
+    )
 
 
 
@@ -304,6 +366,14 @@ class Buses(models.Model):
     blank=True,
     db_column='login_id'
 )
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='commune_id',
+        related_name='buses'
+    )
 
 
 
@@ -341,6 +411,14 @@ class Dalots(models.Model):
     blank=True,
     db_column='login_id'
 )
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='commune_id',
+        related_name='dalots'
+    )
 
 
 
@@ -380,6 +458,14 @@ class Ecoles(models.Model):
     blank=True,
     db_column='login_id'
 )
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='commune_id',
+        related_name='ecoles'
+    )
 
 
 
@@ -419,6 +505,14 @@ class InfrastructuresHydrauliques(models.Model):
     blank=True,
     db_column='login_id'
 )
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='commune_id',
+        related_name='infrastructures_hydrauliques'
+    )
 
 
 
@@ -457,6 +551,14 @@ class Localites(models.Model):
     blank=True,
     db_column='login_id'
 )
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='commune_id',
+        related_name='localites'
+    )
 
 
 
@@ -495,6 +597,14 @@ class Marches(models.Model):
     blank=True,
     db_column='login_id'
 )
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='commune_id',
+        related_name='marches'
+    )
 
 
 
@@ -508,7 +618,7 @@ class Marches(models.Model):
 
 class PassagesSubmersibles(models.Model):
     fid = models.BigAutoField(primary_key=True)
-    geom = models.PointField(srid=4326)
+    geom = models.LineStringField(srid=4326)
     sqlite_id = models.IntegerField(null=True, blank=True, db_column='id')
     x_debut_pa = models.FloatField(null=True, blank=True)
     y_debut_pa = models.FloatField(null=True, blank=True)
@@ -535,6 +645,15 @@ class PassagesSubmersibles(models.Model):
     blank=True,
     db_column='login_id'
 )
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='commune_id',
+        related_name='passages_submersibles'
+    )
+
 
 
 
@@ -574,6 +693,14 @@ class Ponts(models.Model):
     blank=True,
     db_column='login_id'
 )
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='commune_id',
+        related_name='ponts'
+    )
 
 
 

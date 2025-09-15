@@ -1,0 +1,319 @@
+/* src/components/GeographicFilter.css */
+
+.geographic-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Groupe de filtres individuels */
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 4px;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  color: #333;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.filter-select:hover:not(:disabled) {
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+}
+
+.filter-select:disabled {
+  background: #f8f9fa;
+  color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Contrôles du filtrage géographique */
+.filter-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+}
+
+.reset-btn {
+  padding: 6px 12px;
+  background: #e9ecef;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #495057;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.reset-btn:hover:not(:disabled) {
+  background: #dee2e6;
+  border-color: #adb5bd;
+}
+
+.reset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Indicateurs de statut */
+.filter-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-indicator {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.status-active {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.status-default {
+  background: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+}
+
+.status-commune {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+.status-prefecture {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.status-region {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.status-national {
+  background: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+}
+
+/* Section géographique dans le panel principal */
+.geographic-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.geographic-section .filter-title {
+  color: white;
+  margin-bottom: 12px;
+}
+
+.geographic-section .filter-label {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+.geographic-section .filter-select {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #333;
+}
+
+.geographic-section .filter-select:hover:not(:disabled) {
+  background: white;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.geographic-section .filter-select:disabled {
+  background: rgba(255, 255, 255, 0.6);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.geographic-section .reset-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.geographic-section .reset-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.geographic-section .filter-controls {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Status dans la section géographique */
+.geographic-status {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.geographic-status .status-indicator {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 12px;
+  justify-content: center;
+}
+
+/* Debug info */
+.debug-info {
+  padding: 8px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  font-family: monospace;
+  line-height: 1.4;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .geographic-filter {
+    gap: 8px;
+  }
+  
+  .filter-select {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  
+  .filter-label {
+    font-size: 12px;
+  }
+  
+  .geographic-section {
+    padding: 12px;
+  }
+  
+  .status-indicator {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+}
+
+/* Animations */
+.geographic-filter {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* États de chargement */
+.geographic-filter.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.geographic-filter.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid #3498db;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Amélioration accessibilité */
+.filter-select:focus-visible {
+  outline: 2px solid #3498db;
+  outline-offset: 2px;
+}
+
+.reset-btn:focus-visible {
+  outline: 2px solid #3498db;
+  outline-offset: 2px;
+}
+
+/* Indicateur de filtrage actif sur la carte */
+.geographic-filter-indicator {
+  position: absolute;
+  top: 60px;
+  right: 10px;
+  background: rgba(52, 152, 219, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
