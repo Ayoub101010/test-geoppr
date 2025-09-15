@@ -61,11 +61,20 @@ const MapContainer = () => {
 
   // CHARGEMENT INITIAL AVEC CACHE GLOBAL
   const loadAllDataOnce = async () => {
-    // Utiliser le cache global s'il existe
-    if (GLOBAL_DATA_CACHE && GLOBAL_HIERARCHY_CACHE) {
+    // Utiliser le cache global s'il existe ET qu'il n'est pas vide
+    if (GLOBAL_DATA_CACHE && GLOBAL_HIERARCHY_CACHE && 
+        GLOBAL_DATA_CACHE.features && GLOBAL_DATA_CACHE.features.length > 0) {
       console.log("📦 Utilisation du cache global existant");
       setLocalDataCache(GLOBAL_DATA_CACHE);
       setHierarchyData(GLOBAL_HIERARCHY_CACHE);
+      setIsInitialLoading(false);
+      return;
+    }
+    
+    // Si le cache existe déjà localement, l'utiliser aussi
+    if (localDataCache && hierarchyData && 
+        localDataCache.features && localDataCache.features.length > 0) {
+      console.log("📦 Données déjà présentes localement");
       setIsInitialLoading(false);
       return;
     }
@@ -381,7 +390,7 @@ const MapContainer = () => {
 
   // Chargement initial unique
   useEffect(() => {
-    if (isMapReady) {
+    if (isMapReady && !localDataCache) {
       loadAllDataOnce();
     }
   }, [isMapReady]);

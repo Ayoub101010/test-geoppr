@@ -108,7 +108,7 @@ const SuperAdminPage = () => {
   };
 
   return (
-    <div className="superadmin-wrapper"> {/* Utiliser superadmin-wrapper pour correspondre au CSS */}
+    <div className="superadmin-wrapper">
       {/* Overlay export */}
       <div className="export-overlay" id="exportOverlay">
         <div className="export-loading">
@@ -237,121 +237,125 @@ const SuperAdminPage = () => {
         </div>
       )}
 
-      {/* Contenu dynamique selon la vue */}
-      {currentView === "map" && (
-        <div className="main-container">
-          {/* Sidebar */}
-          <div className="sidebar">
-            {/* Filtres géographiques */}
-            <div className="filter-section">
-              <div className="filter-title">
-                <i className="fas fa-map-marker-alt"></i> Localisation
-              </div>
-              <div className="filter-row">
-                <GeographicFilter
-                  onFiltersChange={(geoFilters) => {
-                    // ✅ PROTECTION ANTI-BOUCLE
-                    const currentFilters = {
-                      region_id: filters.region_id,
-                      prefecture_id: filters.prefecture_id,
-                      commune_id: filters.commune_id
-                    };
-                    
-                    if (JSON.stringify(geoFilters) === JSON.stringify(currentFilters)) {
-                      return; // Pas de changement, éviter la boucle
-                    }
-                    
-                    setFilters(prev => ({
-                      ...prev,
-                      region_id: geoFilters.region_id,
-                      prefecture_id: geoFilters.prefecture_id,
-                      commune_id: geoFilters.commune_id
-                    }));
-                    
-                    setTimeout(() => {
-                      window.dispatchEvent(new CustomEvent('geographicFilterChanged', {
-                        detail: geoFilters
-                      }));
-                    }, 100);
-                  }}
-                  initialFilters={{
+      {/* SOLUTION 1: Vue Carte - Reste avec main-container */}
+      <div className="main-container" style={{ display: currentView === "map" ? "flex" : "none" }}>
+        <div className="sidebar">
+          {/* Filtres géographiques */}
+          <div className="filter-section">
+            <div className="filter-title">
+              <i className="fas fa-map-marker-alt"></i> Localisation
+            </div>
+            <div className="filter-row">
+              <GeographicFilter
+                onFiltersChange={(geoFilters) => {
+                  const currentFilters = {
                     region_id: filters.region_id,
                     prefecture_id: filters.prefecture_id,
                     commune_id: filters.commune_id
-                  }}
-                  showLabels={true}
-                />
-              </div>
+                  };
+                  
+                  if (JSON.stringify(geoFilters) === JSON.stringify(currentFilters)) {
+                    return;
+                  }
+                  
+                  setFilters(prev => ({
+                    ...prev,
+                    region_id: geoFilters.region_id,
+                    prefecture_id: geoFilters.prefecture_id,
+                    commune_id: geoFilters.commune_id
+                  }));
+                  
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('geographicFilterChanged', {
+                      detail: geoFilters
+                    }));
+                  }, 100);
+                }}
+                initialFilters={{
+                  region_id: filters.region_id,
+                  prefecture_id: filters.prefecture_id,
+                  commune_id: filters.commune_id
+                }}
+                showLabels={true}
+              />
             </div>
+          </div>
 
-            {/* Filtres géométrie */}
-            <div className="filter-section">
-              <div className="filter-title">
-                <i className="fas fa-road"></i> Type de géométrie
-              </div>
-              <div className="filter-checkbox-group">
-                <div className="checkbox-item">
-                  <input type="checkbox" id="pistes" defaultChecked />
-                  <label htmlFor="pistes">Pistes</label>
-                </div>
-                <div className="checkbox-item">
-                  <input type="checkbox" id="chaussees" defaultChecked />
-                  <label htmlFor="chaussees">Chaussées</label>
-                </div>
-              </div>
+          {/* Filtres géométrie */}
+          <div className="filter-section">
+            <div className="filter-title">
+              <i className="fas fa-road"></i> Type de géométrie
             </div>
-
-            {/* Filtres infrastructures */}
-            <div className="filter-section">
-              <div className="filter-title">
-                <i className="fas fa-building"></i> Infrastructures
+            <div className="filter-checkbox-group">
+              <div className="checkbox-item">
+                <input type="checkbox" id="pistes" defaultChecked />
+                <label htmlFor="pistes">Pistes</label>
               </div>
-              <div className="filter-checkbox-group">
-                {[
-                  ["buses", "Buses"],
-                  ["dalots", "Dalots"],
-                  ["ponts", "Ponts"],
-                  ["passages_submersibles", "Passages submersibles"],
-                  ["bacs", "Bacs"],
-                  ["localites", "Localités"],
-                  ["ecoles", "Écoles"],
-                  ["marches", "Marchés"],
-                  ["batiments_administratifs", "Bâtiments administratifs"],
-                  ["infrastructures_hydrauliques", "Infrastructures hydrauliques"],
-                  ["services_santes", "Services de santé"],
-                  ["autres_infrastructures", "Autres infrastructures"],
-                ].map(([id, label]) => (
-                  <div className="checkbox-item" key={id}>
-                    <input type="checkbox" id={id} defaultChecked />
-                    <label htmlFor={id}>{label}</label>
-                  </div>
-                ))}
+              <div className="checkbox-item">
+                <input type="checkbox" id="chaussees" defaultChecked />
+                <label htmlFor="chaussees">Chaussées</label>
               </div>
             </div>
           </div>
 
-          {/* Contenu principal */}
-          <div className="map-container">
-            <MapContainer />
-          </div>
-
-          {/* Panel de droite */}
-          <div className="right-panel">
-            <TimeChart />
-            <InfrastructureDonut />
-            <RadarChartComponent />
-            <BarChart />
+          {/* Filtres infrastructures */}
+          <div className="filter-section">
+            <div className="filter-title">
+              <i className="fas fa-building"></i> Infrastructures
+            </div>
+            <div className="filter-checkbox-group">
+              {[
+                ["buses", "Buses"],
+                ["dalots", "Dalots"],
+                ["ponts", "Ponts"],
+                ["passages_submersibles", "Passages submersibles"],
+                ["bacs", "Bacs"],
+                ["localites", "Localités"],
+                ["ecoles", "Écoles"],
+                ["marches", "Marchés"],
+                ["batiments_administratifs", "Bâtiments administratifs"],
+                ["infrastructures_hydrauliques", "Infrastructures hydrauliques"],
+                ["services_santes", "Services de santé"],
+                ["autres_infrastructures", "Autres infrastructures"],
+              ].map(([id, label]) => (
+                <div className="checkbox-item" key={id}>
+                  <input type="checkbox" id={id} defaultChecked />
+                  <label htmlFor={id}>{label}</label>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      )}
 
-      {currentView === "dashboard" && <Dashboard />}
-
-      {currentView === "users" && (
-        <div className="users-container">
-          <GestionUserPage />
+        {/* Contenu principal */}
+        <div className="map-container">
+          <MapContainer />
         </div>
-      )}
+
+        {/* Panel de droite */}
+        <div className="right-panel">
+          <TimeChart />
+          <InfrastructureDonut />
+          <RadarChartComponent />
+          <BarChart />
+        </div>
+      </div>
+
+      {/* SOLUTION 2: Vue Dashboard - Nouvelle classe spécialisée */}
+      <div 
+        className="view-container dashboard-view" 
+        style={{ display: currentView === "dashboard" ? "block" : "none" }}
+      >
+        <Dashboard />
+      </div>
+
+      {/* SOLUTION 3: Vue Users - Nouvelle classe spécialisée */}
+      <div 
+        className="view-container users-view" 
+        style={{ display: currentView === "users" ? "block" : "none" }}
+      >
+        <GestionUserPage />
+      </div>
     </div>
   );
 };
