@@ -20,35 +20,33 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const handlePublicAccess = () => {
-    navigate("/user"); // Accès public vers UserPage
-  };
+      navigate("/user"); // Accès public vers UserPage
+    };
 
-  useEffect(() => {
-    document.body.style.backgroundColor = "#000";
+    useEffect(() => {
+      document.body.style.backgroundColor = "#000";
 
-    const globe = Globe()(globeEl.current)
-      .globeImageUrl("//unpkg.com/three-globe/example/img/earth-night.jpg")
-      .backgroundColor("rgba(0,0,0,0)")
-      .pointOfView({ lat: 0, lng: 0, altitude: 2 }, 0)
-      .showAtmosphere(true)
-      .atmosphereColor("#950f6dff")
-      .atmosphereAltitude(0.2);
+      const globe = Globe()(globeEl.current)
+        .globeImageUrl("//unpkg.com/three-globe/example/img/earth-night.jpg")
+        .backgroundColor("rgba(0,0,0,0)")
+        .pointOfView({ lat: 0, lng: 0, altitude: 2 }, 0)
+        .showAtmosphere(true)
+        .atmosphereColor("#950f6dff")
+        .atmosphereAltitude(0.2);
 
-    let angle = 0;
-    const interval = setInterval(() => {
-      globe.pointOfView({ lat: 0, lng: angle, altitude: 2 }, 50);
-      angle += 0.1;
-    }, 60);
+      let angle = 0;
+      const interval = setInterval(() => {
+        globe.pointOfView({ lat: 0, lng: angle, altitude: 2 }, 50);
+        angle += 0.1;
+      }, 60);
 
-    return () => clearInterval(interval);
-  }, []);
+      return () => clearInterval(interval);
+    }, []);
 
-  // MODIFICATION: Remplacer votre handleLogin existant par celui-ci
-  const handleLogin = async () => {
-    // Réinitialiser l'erreur
+    // MODIFICATION: Remplacer votre handleLogin existant par celui-ci
+    const handleLogin = async () => {
     setError("");
     
-    // Validation des champs
     if (!email || !password) {
       setError("Veuillez remplir tous les champs.");
       return;
@@ -60,11 +58,14 @@ export default function LoginPage() {
       const result = await login(email, password);
       
       if (result.success) {
-        // Redirection selon le rôle
+        // MODIFICATION : Redirection selon le rôle
         if (result.user.role === 'super_admin') {
           navigate("/superadmin");
+        } else if (result.user.role === 'admin') {
+          navigate("/admin"); // Redirection vers AdminPage pour les admins
         } else {
-          navigate("/user");
+          // Ne devrait pas arriver car backend refuse les autres rôles
+          setError("Accès refusé. Connexion réservée aux administrateurs.");
         }
       } else {
         setError(result.error || "Identifiants incorrects");

@@ -1,64 +1,29 @@
+// src/components/AdminPage.js
 import React, { useEffect, useState, useRef } from "react";
 import geoLogo from "../assets/GeoPPR_Logo.png";
 import "leaflet/dist/leaflet.css";
-import TimeChart from "./TimeChart";
 import InfrastructureDonut from "./InfrastructureDonut";
-import RadarChartComponent from "./RadarChart";
 import BarChart from "./BarChart";
 import MapContainer from "./MapContainer";
+import TimeChart from "./TimeChart";
 import Dashboard from "./DashBoard";
-import GestionUserPage from "./GestionUserPage";
-import "./SuperAdminPage.css";
-import CommuneSelector from './CommuneSelector';
-import GeographicFilter from './GeographicFilterWithZoom';
+import GeographicFilterWithZoom from './GeographicFilterWithZoom';
+import "./SuperAdminPage.css"; // Réutilise les mêmes styles
+import { useAuth } from './AuthContext';
 
-const SuperAdminPage = () => {
+const AdminPage = () => {
   const [currentView, setCurrentView] = useState("map");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileRef = useRef(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const { user, logout } = useAuth();
+  
   const [profile, setProfile] = useState({
-    nom: "Admin",
-    prenom: "Admin1",
-    email: "Admin@example.com",
+    nom: user?.nom || "Admin",
+    prenom: user?.prenom || "",
+    email: user?.mail || "admin@example.com",
   });
-
-  // État des filtres
-  const [filters, setFilters] = useState({
-    region: "",
-    prefecture: "",
-    commune: "",
-    commune_id: "",
-    types: new Set(),
-  });
-
-  const goToDashboard = () => {
-    setCurrentView("dashboard");
-  };
-
-  const goToUserManagement = () => {
-    setCurrentView("users");
-  };
-
-  const getActiveFilters = () => {
-    const region = document.getElementById("regionFilter")?.value || "";
-    const prefecture = document.getElementById("prefectureFilter")?.value || "";
-    const commune_id = document.getElementById("communeFilter")?.value || "";
-
-    const checkedTypes = Array.from(
-      document.querySelectorAll(
-        ".filter-checkbox-group input[type='checkbox']:checked"
-      )
-    ).map((cb) => cb.id);
-
-    return {
-      region,
-      prefecture,
-      commune_id,
-      types: new Set(checkedTypes),
-    };
-  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -67,34 +32,12 @@ const SuperAdminPage = () => {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const exportBtn = document.getElementById("exportBtn");
-    const dropdown = document.querySelector(".export-dropdown");
-
-    const toggleDropdown = () => {
-      dropdown?.classList.toggle("show");
-    };
-
-    if (exportBtn) {
-      exportBtn.addEventListener("click", toggleDropdown);
-    }
-
-    return () => {
-      if (exportBtn) {
-        exportBtn.removeEventListener("click", toggleDropdown);
-      }
-    };
-  }, [currentView]);
-
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('isAuthenticated');
-    window.location.href = '/';
+    logout();
+    window.location.href = "/";
   };
 
   const handleEditProfile = () => {
@@ -103,67 +46,58 @@ const SuperAdminPage = () => {
   };
 
   const handleSaveProfile = () => {
-    console.log('Profil sauvegardé:', profile);
+    console.log("Profil sauvegardé:", profile);
     setShowEditProfileModal(false);
   };
 
   return (
     <div className="superadmin-wrapper">
-      {/* Overlay export */}
-      <div className="export-overlay" id="exportOverlay">
-        <div className="export-loading">
-          <div className="export-spinner"></div>
-          <p>Génération de l'export en cours...</p>
-        </div>
-      </div>
-
-      {/* Header */}
+      {/* Header identique */}
       <div className="header">
         <div className="logo">
           <img src={geoLogo} alt="GeoPPR Logo" />
         </div>
-        
+
+        {/* Navigation SANS l'option Utilisateurs */}
         <div className="nav-menu">
           <div
             className={`nav-item ${currentView === "map" ? "active" : ""}`}
             onClick={() => setCurrentView("map")}
           >
-            <i className="fas fa-map"></i> Carte
+            <i className="fas fa-map-marked-alt"></i> Carte
           </div>
           <div
             className={`nav-item ${currentView === "dashboard" ? "active" : ""}`}
-            onClick={goToDashboard}
+            onClick={() => setCurrentView("dashboard")}
           >
-            <i className="fas fa-chart-line"></i> Tableau de bord
+            <i className="fas fa-chart-line"></i> Tableau de Bord
           </div>
-          <div
-            className={`nav-item ${currentView === "users" ? "active" : ""}`}
-            onClick={goToUserManagement}
-          >
-            <i className="fas fa-users"></i> Gestion Utilisateurs
-          </div>
+          {/* PAS de section Utilisateurs pour les admins */}
         </div>
 
-        <div className="user-profile" ref={profileRef}>
-          <div 
-            className="profile-pic"
+        {/* Profil */}
+        <div className="profile-section" ref={profileRef}>
+          <div
+            className="profile-info"
             onClick={() => setShowProfileMenu(!showProfileMenu)}
-            style={{ cursor: "pointer" }}
           >
-            SA
-          </div>
-          <div className="user-info">
-            <h4>{profile.prenom} {profile.nom}</h4>
-            <span>Super Admin</span>
+            <div className="profile-avatar">
+              {profile.nom.charAt(0).toUpperCase()}
+            </div>
+            <span className="profile-name">
+              {profile.nom} {profile.prenom}
+            </span>
+            <span className="profile-role">Administrateur</span>
+            <i className="fas fa-chevron-down"></i>
           </div>
 
           {showProfileMenu && (
             <div className="profile-dropdown">
               <ul>
                 <li onClick={handleEditProfile}>
-                  <i className="fas fa-edit"></i> Modifier le profil
+                  <i className="fas fa-user-edit"></i> Modifier le profil
                 </li>
-                <li onClick={() => setShowLogoutModal(true)}>
+                <li onClick={() => { setShowLogoutModal(true); setShowProfileMenu(false); }}>
                   <i className="fas fa-sign-out-alt"></i> Déconnexion
                 </li>
               </ul>
@@ -172,7 +106,7 @@ const SuperAdminPage = () => {
         </div>
       </div>
 
-      {/* Modals */}
+      {/* Modales identiques */}
       {showEditProfileModal && (
         <div className="modal-overlay" onClick={(e) => e.stopPropagation()}>
           <div className="modal-content">
@@ -237,69 +171,49 @@ const SuperAdminPage = () => {
         </div>
       )}
 
-      {/* SOLUTION 1: Vue Carte - Reste avec main-container */}
+      {/* Vue Carte */}
       <div className="main-container" style={{ display: currentView === "map" ? "flex" : "none" }}>
+        {/* Sidebar avec filtres */}
         <div className="sidebar">
-          {/* Filtres géographiques */}
+          {/* Section géographique avec événement personnalisé */}
           <div className="filter-section">
             <div className="filter-title">
               <i className="fas fa-map-marker-alt"></i> Localisation
             </div>
-            <div className="filter-row">
-              <GeographicFilter
-                onFiltersChange={(geoFilters) => {
-                  const currentFilters = {
-                    region_id: filters.region_id,
-                    prefecture_id: filters.prefecture_id,
-                    commune_id: filters.commune_id
-                  };
-                  
-                  if (JSON.stringify(geoFilters) === JSON.stringify(currentFilters)) {
-                    return;
-                  }
-                  
-                  setFilters(prev => ({
-                    ...prev,
-                    region_id: geoFilters.region_id,
-                    prefecture_id: geoFilters.prefecture_id,
-                    commune_id: geoFilters.commune_id
+            <GeographicFilterWithZoom 
+              onFiltersChange={(geoFilters) => {
+                // Déclencher l'événement pour MapContainer
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('geographicFilterChanged', {
+                    detail: geoFilters
                   }));
-                  
-                  setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent('geographicFilterChanged', {
-                      detail: geoFilters
-                    }));
-                  }, 100);
-                }}
-                initialFilters={{
-                  region_id: filters.region_id,
-                  prefecture_id: filters.prefecture_id,
-                  commune_id: filters.commune_id
-                }}
-                showLabels={true}
-              />
-            </div>
+                }, 100);
+              }}
+              showLabels={true}
+            />
           </div>
-
-          {/* Filtres géométrie */}
+          
           <div className="filter-section">
             <div className="filter-title">
-              <i className="fas fa-road"></i> Voirie
+              <i className="fas fa-road"></i> Routes
             </div>
             <div className="filter-checkbox-group">
-              <div className="checkbox-item">
-                <input type="checkbox" id="pistes" defaultChecked />
-                <label htmlFor="pistes">Pistes</label>
-              </div>
-              <div className="checkbox-item">
-                <input type="checkbox" id="chaussees" defaultChecked />
-                <label htmlFor="chaussees">Chaussées</label>
-              </div>
+              {[
+                ["pistes", "Pistes"],
+                ["chaussees", "Chaussées"],
+              ].map(([id, label]) => (
+                <div className="checkbox-item" key={id}>
+                  <input 
+                    type="checkbox" 
+                    id={id}
+                    defaultChecked
+                  />
+                  <label htmlFor={id}>{label}</label>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Filtres infrastructures */}
-          {/* Filtres infrastructures */}
           <div className="filter-section">
             <div className="filter-title">
               <i className="fas fa-building"></i> Infrastructures
@@ -315,14 +229,17 @@ const SuperAdminPage = () => {
                 ["autres_infrastructures", "Autres infrastructures"],
               ].map(([id, label]) => (
                 <div className="checkbox-item" key={id}>
-                  <input type="checkbox" id={id} defaultChecked />
+                  <input 
+                    type="checkbox" 
+                    id={id}
+                    defaultChecked
+                  />
                   <label htmlFor={id}>{label}</label>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Filtres ouvrages */}
           <div className="filter-section">
             <div className="filter-title">
               <i className="fas fa-tools"></i> Ouvrages
@@ -336,16 +253,19 @@ const SuperAdminPage = () => {
                 ["bacs", "Bacs"],
               ].map(([id, label]) => (
                 <div className="checkbox-item" key={id}>
-                  <input type="checkbox" id={id} defaultChecked />
+                  <input 
+                    type="checkbox" 
+                    id={id}
+                    defaultChecked
+                  />
                   <label htmlFor={id}>{label}</label>
                 </div>
               ))}
             </div>
           </div>
-
         </div>
 
-        {/* Contenu principal */}
+        {/* Carte */}
         <div className="map-container">
           <MapContainer />
         </div>
@@ -354,28 +274,19 @@ const SuperAdminPage = () => {
         <div className="right-panel">
           <TimeChart />
           <InfrastructureDonut />
-          {/*<RadarChartComponent />*/}
           <BarChart />
         </div>
       </div>
 
-      {/* SOLUTION 2: Vue Dashboard - Nouvelle classe spécialisée */}
+      {/* Vue Dashboard */}
       <div 
         className="view-container dashboard-view" 
         style={{ display: currentView === "dashboard" ? "block" : "none" }}
       >
         <Dashboard />
       </div>
-
-      {/* SOLUTION 3: Vue Users - Nouvelle classe spécialisée */}
-      <div 
-        className="view-container users-view" 
-        style={{ display: currentView === "users" ? "block" : "none" }}
-      >
-        <GestionUserPage />
-      </div>
     </div>
   );
 };
 
-export default SuperAdminPage;
+export default AdminPage;

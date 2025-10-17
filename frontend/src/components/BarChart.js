@@ -14,12 +14,12 @@ const BarChart = () => {
   const [allStats, setAllStats] = useState({}); // Toutes les données (pour vue initiale)
   const [loading, setLoading] = useState(false);
   
-  // ✅ FILTRES INTÉGRÉS INDÉPENDANTS - AVEC INTERFACE VISIBLE
+  //  FILTRES INTÉGRÉS INDÉPENDANTS - AVEC INTERFACE VISIBLE
   const [modalFilters, setModalFilters] = useState({
     selectedTypes: new Set() // Types sélectionnés SEULEMENT dans cette modal
   });
 
-  // ✅ MAPPING CORRECT backend vers frontend
+  //  MAPPING CORRECT backend vers frontend
   const backendToFrontend = {
     'pistes': 'pistes',
     'chaussees': 'chaussees',
@@ -55,7 +55,7 @@ const BarChart = () => {
     autres: "Autres infrastructures"
   };
 
-  // ✅ NORMALISER les données backend vers frontend
+  //  NORMALISER les données backend vers frontend
   const normalizeStats = (backendStats) => {
     const normalizedStats = {};
     
@@ -68,20 +68,20 @@ const BarChart = () => {
     return normalizedStats;
   };
 
-  // ✅ CHARGER TOUTES LES DONNÉES UNE SEULE FOIS (optimisation performance)
+  //  CHARGER TOUTES LES DONNÉES UNE SEULE FOIS (optimisation performance)
   const loadAllData = async () => {
     setLoading(true);
     try {
       console.log("📊 [BarChart] Chargement TOUTES les données (vue initiale - INDÉPENDANT)");
       
-      // ✅ AUCUN FILTRE - Récupérer TOUTES les données
+      //  AUCUN FILTRE - Récupérer TOUTES les données
       const result = await api.statistiques.getStatsByType({});
       
       if (result.success) {
         const backendStats = result.data;
         const normalizedStats = normalizeStats(backendStats);
         
-        console.log("✅ [BarChart] Toutes les stats normalisées:", normalizedStats);
+        console.log(" [BarChart] Toutes les stats normalisées:", normalizedStats);
         setAllStats(normalizedStats);
         
         // Construire la vue initiale avec TOUTES les données
@@ -98,7 +98,7 @@ const BarChart = () => {
     }
   };
 
-  // ✅ APPLIQUER LES FILTRES MODAUX INDÉPENDANTS (réutilise les données existantes)
+  //  APPLIQUER LES FILTRES MODAUX INDÉPENDANTS (réutilise les données existantes)
   const applyModalFilters = () => {
     let filteredStats = { ...allStats };
 
@@ -117,7 +117,7 @@ const BarChart = () => {
     buildChartData(filteredStats);
   };
 
-  // ✅ GESTION DES FILTRES INDÉPENDANTS DANS LA MODAL
+  //  GESTION DES FILTRES INDÉPENDANTS DANS LA MODAL
   const handleTypeToggle = (type) => {
     const newSelectedTypes = new Set(modalFilters.selectedTypes);
     
@@ -139,7 +139,7 @@ const BarChart = () => {
     });
   };
 
-  // ✅ CONSTRUIRE LES DONNÉES DU GRAPHIQUE
+  //  CONSTRUIRE LES DONNÉES DU GRAPHIQUE
   const buildChartData = (stats) => {
     console.log("📊 [BarChart] Construction avec:", stats);
 
@@ -169,7 +169,7 @@ const BarChart = () => {
     console.log("🎨 [BarChart] Données construites:", { labels, values });
   };
 
-  // ✅ GESTION DU CLIC SUR TOUT LE CONTENEUR (pas seulement les barres)
+  //  GESTION DU CLIC SUR TOUT LE CONTENEUR (pas seulement les barres)
   const handleContainerClick = (e) => {
     if (!isExpanded) {
       console.log("🖱️ [BarChart] Clic sur conteneur - Ouverture modal");
@@ -233,7 +233,7 @@ const BarChart = () => {
         },
       },
     },
-    // ✅ PAS d'onClick dans les options - gestion via conteneur
+    //  PAS d'onClick dans les options - gestion via conteneur
     onHover: (event, elements) => {
       if (!expanded) {
         const canvas = event.native.target;
@@ -285,7 +285,7 @@ const BarChart = () => {
     }
   };
 
-  // ✅ EFFECTS OPTIMISÉS
+  //  EFFECTS OPTIMISÉS
   useEffect(() => {
     // Charger TOUTES les données UNE SEULE FOIS au démarrage
     loadAllData();
@@ -303,7 +303,7 @@ const BarChart = () => {
   }, [chartData, isExpanded]);
 
   useEffect(() => {
-    // ✅ PLUS D'ÉCOUTE DES FILTRES DE GAUCHE - COMPLÈTEMENT INDÉPENDANT
+    //  PLUS D'ÉCOUTE DES FILTRES DE GAUCHE - COMPLÈTEMENT INDÉPENDANT
     // Cleanup seulement
     return () => {
       if (chartInstanceRef.current) {
@@ -329,7 +329,7 @@ const BarChart = () => {
 
   return (
     <>
-      {/* ✅ VUE INITIALE - TOUTES LES DONNÉES (ignore filtres de gauche) */}
+      {/*  VUE INITIALE - TOUTES LES DONNÉES (ignore filtres de gauche) */}
       <div className="bar-chart-wrapper" ref={containerRef}>
         <h2 className="chart-title">📊 Collectes par type d'infrastructure</h2>
         
@@ -344,7 +344,7 @@ const BarChart = () => {
         )}
       </div>
 
-      {/* ✅ MODAL AVEC FILTRES INTÉGRÉS INDÉPENDANTS (COMME LE DONUT) */}
+      {/*  MODAL AVEC FILTRES INTÉGRÉS INDÉPENDANTS (COMME LE DONUT) */}
       {isExpanded && (
         <div className="chart-overlay" onClick={handleCloseExpanded}>
           <div className="chart-expanded">
@@ -362,7 +362,7 @@ const BarChart = () => {
               </button>
             </div>
             
-            {/* ✅ PANNEAU DE FILTRES INTÉGRÉS INDÉPENDANTS (EXACTEMENT COMME LE DONUT) */}
+            {/*  PANNEAU DE FILTRES INTÉGRÉS INDÉPENDANTS (EXACTEMENT COMME LE DONUT) */}
             <div className="chart-filters-panel">
               <div className="filters-row">
                 <div className="filter-stats">
@@ -383,7 +383,7 @@ const BarChart = () => {
                 </button>
               </div>
               
-              {/* ✅ FILTRES PAR TYPES - COMPLÈTEMENT INDÉPENDANTS DES FILTRES DE GAUCHE */}
+              {/*  FILTRES PAR TYPES - COMPLÈTEMENT INDÉPENDANTS DES FILTRES DE GAUCHE */}
               <div className="types-filter-group">
                 <label>Filtrer par types d'infrastructure:</label>
                 <div className="types-checkboxes">

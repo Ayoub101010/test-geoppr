@@ -37,8 +37,10 @@ const GestionUserPage = () => {
     setLoading(true);
     try {
       const response = await userManagementService.getUsers();
+      console.log("📦 Réponse brute backend :", response);
       if (response.success) {
         const usersList = response.data.users || response.data;
+        console.log("👥 Liste des utilisateurs :", usersList);
         setUsers(usersList);
         calculateStats(usersList);
       }
@@ -289,12 +291,7 @@ const GestionUserPage = () => {
                     >
                       ✏️ Modifier
                     </button>
-                    <button
-                      className="supprimer"
-                      onClick={() => handleDeleteUser(user.id)}
-                    >
-                      🗑️ Supprimer
-                    </button>
+                    
                   </td>
                 </tr>
               ))}

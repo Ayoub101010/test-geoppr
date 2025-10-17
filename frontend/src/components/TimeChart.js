@@ -11,12 +11,11 @@ const TimeChart = () => {
   
   // États du composant
   const [isExpanded, setIsExpanded] = useState(false);
-  const [loading, setLoading] = useState(false); // CORRECTION PRINCIPALE
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [temporalData, setTemporalData] = useState({});
   const [totalByPeriod, setTotalByPeriod] = useState({});
   const [selectedTypes, setSelectedTypes] = useState(new Set());
-  const [modalTimeScale, setModalTimeScale] = useState("month");
   const [modalDateFrom, setModalDateFrom] = useState("");
   const [modalDateTo, setModalDateTo] = useState("");
   
@@ -24,26 +23,6 @@ const TimeChart = () => {
   const [modalFilters, setModalFilters] = useState({
     types: []
   });
-
-  // Limites de période selon l'échelle
-  const PERIOD_LIMITS = {
-    day: {
-      maxDays: 7,
-      maxRange: "7 jours maximum"
-    },
-    week: {
-      maxDays: 84, // 12 semaines
-      maxRange: "12 semaines maximum"
-    },
-    month: {
-      maxDays: 730, // 2 ans
-      maxRange: "24 mois maximum"
-    },
-    year: {
-      maxDays: 3650, // 10 ans
-      maxRange: "10 ans maximum"
-    }
-  };
 
   // Plage de dates autorisées
   const DATE_LIMITS = {
@@ -78,16 +57,33 @@ const TimeChart = () => {
     ecoles: "Écoles",
     localites: "Localités",
     marches: "Marchés",
-    batiments_administratifs: "Bât. admin.",
+    batiments_administratifs: "Bât. administratifs",
     infrastructures_hydrauliques: "Infra. hydrauliques",
     bacs: "Bacs",
     passages_submersibles: "Passages submersibles",
-    autres_infrastructures: "Autres",
+    autres_infrastructures: "Autres infrastructures",
     chaussees: "Chaussées"
   };
 
-  // Fonction pour valider la plage de dates
-  const validateDateRange = (dateFrom, dateTo, timeScale) => {
+  // Mapping frontend vers backend cohérent
+  const frontendToBackendMapping = {
+    'pistes': 'pistes',
+    'services_santes': 'services_santes',
+    'ponts': 'ponts',
+    'buses': 'buses',
+    'dalots': 'dalots',
+    'ecoles': 'ecoles',
+    'localites': 'localites',
+    'marches': 'marches',
+    'batiments_administratifs': 'batiments_administratifs',
+    'infrastructures_hydrauliques': 'infrastructures_hydrauliques',
+    'bacs': 'bacs',
+    'passages_submersibles': 'passages_submersibles',
+    'autres_infrastructures': 'autres_infrastructures'
+  };
+
+  // Fonction pour valider la plage de dates (SIMPLIFIÉE - 7 jours max)
+  const validateDateRange = (dateFrom, dateTo) => {
     if (!dateFrom || !dateTo) {
       return { valid: false, error: "Veuillez sélectionner les deux dates" };
     }
@@ -110,53 +106,25 @@ const TimeChart = () => {
       return { valid: false, error: "La date de début doit être antérieure à la date de fin" };
     }
 
-    // Calculer la durée en jours
+    // Calculer la durée en jours (LIMITE FIXE : 7 jours)
     const diffTime = Math.abs(endDate - startDate);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    // Vérifier les limites selon l'échelle
-    const limit = PERIOD_LIMITS[timeScale];
-    if (diffDays > limit.maxDays) {
+    if (diffDays > 7) {
       return { 
         valid: false, 
-        error: `Période trop longue pour l'échelle "${timeScale}". ${limit.maxRange}` 
+        error: "Période maximum : 7 jours" 
       };
     }
 
     return { valid: true, days: diffDays };
   };
 
-  // Fonction pour compléter la dernière semaine incomplète
-  const completeLastWeek = (dateFrom, dateTo) => {
-    const startDate = new Date(dateFrom);
-    const endDate = new Date(dateTo);
-    
-    // Trouver le dimanche de la dernière semaine
-    const lastSunday = new Date(endDate);
-    const daysToAdd = 6 - endDate.getDay(); // 0 = dimanche, 6 = samedi
-    lastSunday.setDate(endDate.getDate() + daysToAdd);
-    
-    // Retourner la date ajustée au format YYYY-MM-DD
-    return lastSunday.toISOString().split('T')[0];
-  };
-
-  // Fonction pour calculer le nombre de semaines complètes
-  const calculateWeekSpan = (dateFrom, dateTo) => {
-    const start = new Date(dateFrom);
-    const end = new Date(dateTo);
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const weeks = Math.ceil(diffDays / 7);
-    const remainingDays = diffDays % 7;
-    
-    return { weeks, remainingDays, totalDays: diffDays };
-  };
-
   // Initialiser les filtres internes avec tous les types disponibles
   const initializeModalFilters = () => {
     const allTypes = Object.keys(typeLabels);
     setModalFilters({
-      types: allTypes // Tous les types sélectionnés par défaut
+      types: allTypes
     });
   };
 
@@ -165,9 +133,7 @@ const TimeChart = () => {
     const periodData = Object.entries(totalByPeriod).map(([period, count]) => ({
       period,
       count,
-      sortKey: period.includes('/') ? 
-        period.split('/').reverse().join('-') : 
-        period
+      sortKey: period
     }));
 
     const sortedData = periodData.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
@@ -212,20 +178,17 @@ const TimeChart = () => {
     });
   };
 
-  // Charger les données temporelles (logique indépendante)
+  // Charger les données temporelles sans dépendance aux checkboxes globales
   const loadDefaultTemporalData = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // Utiliser la logique qui lit les checkboxes du panneau de gauche
-      const checkedTypes = Array.from(
-        document.querySelectorAll(".filter-checkbox-group input[type='checkbox']:checked")
-      ).map((cb) => cb.id);
-
+      const allAvailableTypes = Object.keys(frontendToBackendMapping);
+      
       const filters = {
-        types: checkedTypes.length > 0 ? checkedTypes : Object.keys(typeLabels),
-        period_type: "month"
+        types: allAvailableTypes,
+        period_type: "month" // Vue principale en mois
       };
       
       const result = await api.temporalAnalysis.getTemporalData(filters);
@@ -237,13 +200,13 @@ const TimeChart = () => {
         setTemporalData(responseData);
         setTotalByPeriod(responseTotalByPeriod);
         
-        // Sélectionner tous les types disponibles
-        const allAvailableTypes = Object.keys(responseData).filter(type => {
+        const typesWithData = Object.keys(responseData).filter(type => {
           const typeData = responseData[type];
           return Array.isArray(typeData) && typeData.length > 0;
         });
         
-        setSelectedTypes(new Set(allAvailableTypes));
+        setSelectedTypes(new Set(typesWithData));
+        
       } else {
         setError(result.error || "Aucune donnée disponible");
         setTemporalData({});
@@ -259,45 +222,29 @@ const TimeChart = () => {
     }
   };
 
-  // Charger les données pour la modal avec filtres internes
+  // Charger les données pour la modal (JOURS SEULEMENT)
   const loadModalData = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // LOGIQUE DE BASCULEMENT AUTOMATIQUE (OBLIGATOIRE)
-      let finalTimeScale = modalTimeScale;
-      let adjustedDateTo = modalDateTo;
-      let willAutoSwitch = false;
-      
-      if (modalDateFrom && modalDateTo) {
-        const startDate = new Date(modalDateFrom);
-        const endDate = new Date(modalDateTo);
-        const diffTime = Math.abs(endDate - startDate);
-        const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        // Basculement automatique OBLIGATOIRE si échelle "jours" et période > 7 jours
-        if (modalTimeScale === 'day' && daysDiff > 7) {
-          finalTimeScale = 'week';
-          adjustedDateTo = completeLastWeek(modalDateFrom, modalDateTo);
-          willAutoSwitch = true;
-        }
-      }
-
-      // Validation des dates avec l'échelle finale (après basculement)
-      const validation = validateDateRange(modalDateFrom, adjustedDateTo, finalTimeScale);
+      // Validation simple - 7 jours max
+      const validation = validateDateRange(modalDateFrom, modalDateTo);
       if (!validation.valid) {
         setError(validation.error);
         setLoading(false);
         return;
       }
       
-      // Utiliser les filtres internes de la modal (INDÉPENDANTS)
+      const backendTypes = modalFilters.types.map(type => 
+        frontendToBackendMapping[type] || type
+      );
+      
       const filters = {
-        period_type: finalTimeScale,
-        types: modalFilters.types, // Filtres internes seulement
+        period_type: "day", // TOUJOURS en jours dans la modal
+        types: backendTypes,
         date_from: modalDateFrom,
-        date_to: adjustedDateTo
+        date_to: modalDateTo
       };
       
       const result = await api.temporalAnalysis.getTemporalData(filters);
@@ -309,7 +256,7 @@ const TimeChart = () => {
         setError(result.error || "Aucune donnée disponible");
       }
     } catch (error) {
-      console.error("Erreur:", error);
+      console.error("Erreur loadModalData:", error);
       setError("Erreur de connexion");
     } finally {
       setLoading(false);
@@ -394,7 +341,6 @@ const TimeChart = () => {
           padding: 20,
           font: { size: 11 },
           generateLabels: function(chart) {
-            const datasets = chart.data.datasets;
             const typeKeys = Object.keys(temporalData);
             
             return typeKeys
@@ -461,7 +407,7 @@ const TimeChart = () => {
         ticks: {
           font: { size: isModal ? 12 : 9 },
           maxRotation: 45,
-          maxTicksLimit: isModal ? 20 : 8
+          maxTicksLimit: isModal ? 10 : 8
         }
       }
     }
@@ -488,14 +434,12 @@ const TimeChart = () => {
   const handleChartClick = () => {
     if (Object.keys(temporalData).length > 0) {
       setIsExpanded(true);
-      // Initialiser les filtres internes indépendants
       initializeModalFilters();
     }
   };
 
   const handleCloseExpanded = () => {
     setIsExpanded(false);
-    // Recharger les données principales après fermeture de la modal
     loadDefaultTemporalData();
   };
 
@@ -504,15 +448,10 @@ const TimeChart = () => {
   };
 
   const resetModalFilters = () => {
-    setModalTimeScale("month");
     setModalDateFrom("");
     setModalDateTo("");
-    initializeModalFilters(); // Réinitialiser avec tous les types
+    initializeModalFilters();
     setError(null);
-    // Charger les données avec les filtres par défaut
-    setTimeout(() => {
-      loadModalData();
-    }, 100);
   };
 
   // Effects
@@ -547,7 +486,7 @@ const TimeChart = () => {
       <div className="analytics-section">
         <div className="analytics-title">
           <i className="fas fa-chart-line"></i>
-          Évolution temporelle
+          Évolution temporelle Des Collectes
         </div>
 
         {loading ? (
@@ -586,38 +525,16 @@ const TimeChart = () => {
         <div className="chart-modal-overlay">
           <div className="chart-modal-container">
             <div className="chart-modal-header">
-              <h3>Analyse temporelle détaillée</h3>
+              <h3>Analyse temporelle détaillée (par jour)</h3>
               <button className="modal-close-btn" onClick={handleCloseExpanded}>
                 ✕
               </button>
             </div>
 
             <div className="modal-filters">
-              {/* Échelle temporelle */}
+              {/* Période d'étude - SIMPLIFIÉ */}
               <div className="filter-group">
-                <label>Échelle temporelle :</label>
-                <div className="time-scale-buttons">
-                  {['day', 'week', 'month', 'year'].map((scale) => (
-                    <button
-                      key={scale}
-                      className={`scale-btn ${modalTimeScale === scale ? "active" : ""}`}
-                      onClick={() => setModalTimeScale(scale)}
-                    >
-                      {scale === "day" && "Jours"}
-                      {scale === "week" && "Semaines"}
-                      {scale === "month" && "Mois"}
-                      {scale === "year" && "Années"}
-                    </button>
-                  ))}
-                </div>
-                <div className="scale-limits">
-                  {PERIOD_LIMITS[modalTimeScale]?.maxRange}
-                </div>
-              </div>
-
-              {/* Période d'étude */}
-              <div className="filter-group">
-                <label>Période d'étude :</label>
+                <label>Période d'étude (7 jours maximum) :</label>
                 <div className="date-range">
                   <input
                     type="date"
@@ -639,7 +556,7 @@ const TimeChart = () => {
 
               {/* Actions */}
               <div className="filter-group">
-                <label>&nbsp;</label> {/* Label vide pour alignement */}
+                <label>&nbsp;</label>
                 <div className="filter-actions">
                   <button className="apply-btn" onClick={applyModalFilters}>
                     Appliquer
@@ -651,48 +568,25 @@ const TimeChart = () => {
               </div>
             </div>
 
-            {/* Informations sur la période */}
+            {/* Information simple sur la période */}
             {modalDateFrom && modalDateTo && (
               <div className="period-info">
                 {(() => {
-                  // Calculer avec l'échelle actuelle ET l'échelle après basculement
+                  const validation = validateDateRange(modalDateFrom, modalDateTo);
                   const startDate = new Date(modalDateFrom);
                   const endDate = new Date(modalDateTo);
                   const diffTime = Math.abs(endDate - startDate);
                   const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                   
-                  const willAutoSwitch = modalTimeScale === 'day' && daysDiff > 7;
-                  const finalScale = willAutoSwitch ? 'week' : modalTimeScale;
-                  const finalDateTo = willAutoSwitch ? completeLastWeek(modalDateFrom, modalDateTo) : modalDateTo;
-                  
-                  const validation = validateDateRange(modalDateFrom, finalDateTo, finalScale);
-                  const span = calculateWeekSpan(modalDateFrom, modalDateTo);
-                  
                   return (
-                    <div className={`period-display ${!validation.valid ? 'error' : willAutoSwitch ? 'warning' : 'info'}`}>
+                    <div className={`period-display ${!validation.valid ? 'error' : 'info'}`}>
                       <div className="period-summary">
-                        Période: {span.totalDays} jours 
-                        {span.totalDays > 7 && (
-                          <span> = {span.weeks} semaine{span.weeks > 1 ? 's' : ''} 
-                          {span.remainingDays > 0 && ` + ${span.remainingDays} jour${span.remainingDays > 1 ? 's' : ''}`}
-                          </span>
-                        )}
+                        Période sélectionnée: {daysDiff} jour{daysDiff > 1 ? 's' : ''}
                       </div>
                       
                       {!validation.valid && (
                         <div className="period-error">
                           {validation.error}
-                        </div>
-                      )}
-                      
-                      {willAutoSwitch && validation.valid && (
-                        <div className="period-warning">
-                          ⚠️ Basculement automatique vers l'échelle "Semaines"
-                          {span.remainingDays > 0 && (
-                            <div className="period-extension">
-                              (Période étendue pour compléter la dernière semaine)
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>

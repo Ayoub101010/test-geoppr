@@ -1,8 +1,7 @@
 /* Légende de la carte */
 .map-legend {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
+  bottom: 0px;    
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 12px;
@@ -285,4 +284,9 @@
   .stat-label {
     font-size: 9px;
   }
+}
+/* Style pour les lignes dans la légende */
+.legend-line-icon {
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }

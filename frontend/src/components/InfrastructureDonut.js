@@ -2,6 +2,9 @@ import React, { useRef, useEffect, useState } from "react";
 import Chart from "chart.js/auto";
 import "./InfrastructureDonut.css";
 import api from "./api";
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { useAuth } from './AuthContext';
 
 const InfrastructureDonut = () => {
   const chartRef = useRef(null);
@@ -15,8 +18,10 @@ const InfrastructureDonut = () => {
   const [allStats, setAllStats] = useState({}); // Toutes les données complètes
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState('categories'); // 'categories' ou 'detailed'
+  const { user } = useAuth();
+  const [isExporting, setIsExporting] = useState(false);
 
-  // ✅ FILTRES INTÉGRÉS INDÉPENDANTS - INVISIBLES (même style qu'avant)
+  //  FILTRES INTÉGRÉS INDÉPENDANTS - INVISIBLES (même style qu'avant)
   const [modalFilters, setModalFilters] = useState({
     region: '',
     prefecture: '',
@@ -24,7 +29,13 @@ const InfrastructureDonut = () => {
     types: []
   });
 
-  // ✅ MAPPING CORRECT backend vers frontend
+  // Fonction pour vérifier si l'utilisateur peut exporter
+  const canExport = () => {
+    if (!user) return false;
+    return user.role === 'super_admin' || user.role === 'admin';
+  };
+
+  //  MAPPING CORRECT backend vers frontend
   const backendToFrontend = {
     'pistes': 'pistes',
     'chaussees': 'chaussees',
@@ -97,7 +108,7 @@ const InfrastructureDonut = () => {
     autres: "#95a5a6"
   };
 
-  // ✅ NORMALISER les données backend vers frontend
+  //  NORMALISER les données backend vers frontend
   const normalizeStats = (backendStats) => {
     const normalizedStats = {};
     
@@ -110,9 +121,9 @@ const InfrastructureDonut = () => {
     return normalizedStats;
   };
 
-  // ✅ NOUVEAU - Récupérer les filtres INDÉPENDANTS de la modal (pas ceux de gauche)
+  //  NOUVEAU - Récupérer les filtres INDÉPENDANTS de la modal (pas ceux de gauche)
   const getModalFilters = () => {
-    // ✅ UTILISE LES FILTRES INTÉGRÉS DU COMPOSANT (pas ceux de gauche)
+    //  UTILISE LES FILTRES INTÉGRÉS DU COMPOSANT (pas ceux de gauche)
     return {
       region: modalFilters.region,
       prefecture: modalFilters.prefecture,
@@ -121,13 +132,13 @@ const InfrastructureDonut = () => {
     };
   };
 
-  // ✅ CHARGER TOUTES LES DONNÉES UNE SEULE FOIS (optimisation performance)
+  //  CHARGER TOUTES LES DONNÉES UNE SEULE FOIS (optimisation performance)
   const loadAllData = async () => {
     setLoading(true);
     try {
       console.log("📊 [Donut] Chargement TOUTES les données (vue initiale - INDÉPENDANT)");
       
-      // ✅ AUCUN FILTRE - Récupérer TOUTES les données
+      //  AUCUN FILTRE - Récupérer TOUTES les données
       const result = await api.statistiques.getStatsByType({});
       
       if (result.success) {
@@ -151,16 +162,16 @@ const InfrastructureDonut = () => {
     }
   };
 
-  // ✅ CHARGER DONNÉES FILTRÉES INDÉPENDANTES (pour modal seulement - optimisé)
+  //  CHARGER DONNÉES FILTRÉES INDÉPENDANTES (pour modal seulement - optimisé)
   const loadFilteredData = async () => {
     if (!isExpanded) return; // Seulement pour la modal
     
     try {
       console.log("🔍 [Donut] Application filtres modal INDÉPENDANTS");
       
-      const filters = getModalFilters(); // ✅ UTILISE LES FILTRES INDÉPENDANTS
+      const filters = getModalFilters(); //  UTILISE LES FILTRES INDÉPENDANTS
       
-      // ✅ RÉUTILISER les données existantes si pas de filtres géographiques
+      //  RÉUTILISER les données existantes si pas de filtres géographiques
       if (!filters.region && !filters.prefecture && !filters.commune_id) {
         console.log("🚀 [Donut] Réutilisation données existantes (plus rapide)");
         
@@ -182,7 +193,7 @@ const InfrastructureDonut = () => {
         return;
       }
       
-      // ✅ SEULEMENT si filtres géographiques, faire appel API
+      //  SEULEMENT si filtres géographiques, faire appel API
       setLoading(true);
       const result = await api.statistiques.getStatsByType(filters);
       
@@ -218,7 +229,7 @@ const InfrastructureDonut = () => {
     }
   };
 
-  // ✅ GESTION DU CLIC SUR TOUT LE CONTENEUR (pas seulement les sections)
+  //  GESTION DU CLIC SUR TOUT LE CONTENEUR (pas seulement les sections)
   const handleContainerClick = (e) => {
     if (!isExpanded) {
       console.log("🖱️ [Donut] Clic sur conteneur - Ouverture modal");
@@ -238,7 +249,7 @@ const InfrastructureDonut = () => {
     }
   };
 
-  // ✅ VUE PAR CATÉGORIES
+  //  VUE PAR CATÉGORIES
   const buildCategoryData = (stats) => {
     console.log("📊 [Donut] Construction vue catégories avec:", stats);
     
@@ -251,7 +262,7 @@ const InfrastructureDonut = () => {
       types.forEach(type => {
         if (stats[type]) {
           total += stats[type];
-          console.log(`  ✅ ${category} += ${stats[type]} (type: ${type})`);
+          console.log(`   ${category} += ${stats[type]} (type: ${type})`);
         }
       });
       
@@ -278,13 +289,13 @@ const InfrastructureDonut = () => {
     });
   };
 
-  // ✅ VUE DÉTAILLÉE
+  //  VUE DÉTAILLÉE
   const buildDetailedData = (stats) => {
     console.log("🔍 [Donut] Construction vue détaillée avec:", stats);
 
-    // ✅ UTILISER LES FILTRES INDÉPENDANTS (pas ceux de gauche)
+    //  UTILISER LES FILTRES INDÉPENDANTS (pas ceux de gauche)
     if (isExpanded) {
-      const filters = getModalFilters(); // ✅ INDÉPENDANT
+      const filters = getModalFilters(); //  INDÉPENDANT
       const activeStats = {};
       
       if (filters.types.length === 0) {
@@ -322,6 +333,91 @@ const InfrastructureDonut = () => {
     });
   };
 
+  // ✅ Fonction d'export AMÉLIORÉE (haute qualité + titre + date)
+  const exportChart = async (format = 'png') => {
+    setIsExporting(true);
+    try {
+      // Capturer seulement le contenu du graphique (sans les boutons)
+      const chartElement = isExpanded 
+        ? document.querySelector('.chart-expanded-content')
+        : containerRef.current;
+      
+      // Masquer temporairement les boutons pour ne pas les capturer
+      const exportButtons = document.querySelectorAll('.chart-expanded-header button');
+      exportButtons.forEach(btn => btn.style.visibility = 'hidden');
+      
+      const canvas = await html2canvas(chartElement, {
+        backgroundColor: '#ffffff',
+        scale: 3,  // Haute qualité
+        logging: false,
+        useCORS: true,
+        allowTaint: true
+      });
+      
+      // Restaurer les boutons
+      exportButtons.forEach(btn => btn.style.visibility = 'visible');
+
+      if (format === 'png') {
+        const link = document.createElement('a');
+        link.download = `Capacite_Infrastructure_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL('image/png', 1.0);
+        link.click();
+      } else if (format === 'pdf') {
+        const imgData = canvas.toDataURL('image/png', 1.0);
+        
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const ratio = imgWidth / imgHeight;
+        
+        const orientation = ratio > 1 ? 'landscape' : 'portrait';
+        const pdf = new jsPDF(orientation, 'mm', 'a4');
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        // ✅ AJOUTER LE TITRE
+        pdf.setFontSize(16);
+        pdf.setFont(undefined, 'bold');
+        pdf.text('Capacité par Domaine d\'Infrastructure', pdfWidth / 2, 15, { align: 'center' });
+        
+        // ✅ AJOUTER LA DATE
+        pdf.setFontSize(10);
+        pdf.setFont(undefined, 'normal');
+        const dateStr = new Date().toLocaleDateString('fr-FR', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        pdf.text(`Généré le ${dateStr}`, pdfWidth / 2, 22, { align: 'center' });
+        
+        // Calculer l'espace pour le graphique
+        let finalWidth, finalHeight;
+        const margin = 10;
+        const topMargin = 30; // Espace pour le titre et date
+        const availableHeight = pdfHeight - topMargin - margin;
+        
+        if (ratio > pdfWidth / availableHeight) {
+          finalWidth = pdfWidth - (2 * margin);
+          finalHeight = finalWidth / ratio;
+        } else {
+          finalHeight = availableHeight;
+          finalWidth = finalHeight * ratio;
+        }
+        
+        const x = (pdfWidth - finalWidth) / 2;
+        const y = topMargin;
+        
+        pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight, undefined, 'FAST');
+        pdf.save(`Capacite_Infrastructure_${new Date().toISOString().split('T')[0]}.pdf`);
+      }
+    } catch (error) {
+      console.error('Erreur export:', error);
+      alert('Erreur lors de l\'export. Veuillez réessayer.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Options du graphique
   const getChartOptions = (expanded = false) => ({
     responsive: true,
@@ -336,6 +432,28 @@ const InfrastructureDonut = () => {
           font: {
             size: expanded ? 14 : 11,
           },
+          generateLabels: function(chart) {
+            const data = chart.data;
+            if (data.labels.length && data.datasets.length) {
+              const dataset = data.datasets[0];
+              const total = dataset.data.reduce((acc, value) => acc + value, 0);
+              
+              return data.labels.map((label, i) => {
+                const value = dataset.data[i];
+                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                
+                return {
+                  text: `${label} (${value} - ${percentage}%)`,
+                  fillStyle: dataset.backgroundColor[i],
+                  strokeStyle: dataset.borderColor,
+                  lineWidth: dataset.borderWidth,
+                  hidden: false,
+                  index: i
+                };
+              });
+            }
+            return [];
+          }
         },
       },
       tooltip: {
@@ -365,7 +483,6 @@ const InfrastructureDonut = () => {
         },
       },
     },
-    // ✅ PAS d'onClick dans les options - gestion via conteneur
     onHover: (event, elements) => {
       if (!expanded) {
         const canvas = event.native.target;
@@ -377,7 +494,6 @@ const InfrastructureDonut = () => {
   // Créer/mettre à jour le graphique
   const renderChart = () => {
     if (!isExpanded) {
-      // Canvas normal (vue initiale)
       if (chartInstance.current) {
         chartInstance.current.destroy();
       }
@@ -391,7 +507,6 @@ const InfrastructureDonut = () => {
         options: getChartOptions(false),
       });
     } else {
-      // Canvas modal (vue expanded avec filtres)
       if (modalChartInstance.current) {
         modalChartInstance.current.destroy();
       }
@@ -413,45 +528,43 @@ const InfrastructureDonut = () => {
       console.log("❌ [Donut] Fermeture modal - Retour vue complète");
       setIsExpanded(false);
       setViewMode('categories');
-      // Revenir aux données complètes (sans rechargement)
       buildCategoryData(allStats);
     }
   };
 
-  // ✅ EFFECTS OPTIMISÉS
+  //  EFFECTS OPTIMISÉS
   useEffect(() => {
-    // Charger TOUTES les données UNE SEULE FOIS au démarrage
     loadAllData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    // Charger les données filtrées seulement si on est en modal (optimisé)
     if (isExpanded) {
       loadFilteredData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded]);
 
   useEffect(() => {
-    // Reconstruire le graphique quand le mode change ou les filtres INDÉPENDANTS
     if (isExpanded && Object.keys(rawStats).length > 0) {
       buildChartData(rawStats);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, rawStats]);
 
   useEffect(() => {
-    // ✅ RÉAGIR AUX CHANGEMENTS DES FILTRES INDÉPENDANTS
     if (isExpanded) {
       loadFilteredData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modalFilters]);
 
   useEffect(() => {
     renderChart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartData, isExpanded]);
 
   useEffect(() => {
-    // ✅ PLUS D'ÉCOUTE DES FILTRES DE GAUCHE - COMPLÈTEMENT INDÉPENDANT
-    // Cleanup seulement
     return () => {
       if (chartInstance.current) {
         chartInstance.current.destroy();
@@ -476,7 +589,6 @@ const InfrastructureDonut = () => {
 
   return (
     <>
-      {/* ✅ VUE INITIALE - CLIC SUR TOUT LE CONTENEUR */}
       <div className="donut-wrapper" ref={containerRef}>
         <h2>Capacité par Domaine d'Infrastructure</h2>
         
@@ -491,23 +603,97 @@ const InfrastructureDonut = () => {
         )}
       </div>
 
-      {/* ✅ MODAL AVEC FILTRES INDÉPENDANTS (MÊME STYLE QU'AVANT) */}
       {isExpanded && (
         <div className="chart-overlay" onClick={handleCloseExpanded}>
           <div className="chart-expanded">
             <div className="chart-expanded-header">
               <h3>Infrastructure - Vue détaillée par type</h3>
-              <button 
-                className="chart-close-btn"
-                onClick={() => {
-                  console.log("❌ [Donut] Bouton fermeture cliqué");
-                  setIsExpanded(false);
-                  setViewMode('categories');
-                  buildCategoryData(allStats);
-                }}
-              >
-                ✕
-              </button>
+              
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {canExport() && (
+                  <>
+                    <button 
+                      onClick={() => exportChart('png')}
+                      disabled={isExporting}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 12px',
+                        border: 'none',
+                        borderRadius: '6px',
+                        background: 'rgba(255, 255, 255, 0.2)',
+                        color: 'white',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        cursor: isExporting ? 'not-allowed' : 'pointer',
+                        opacity: isExporting ? 0.6 : 1,
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => !isExporting && (e.target.style.background = 'rgba(255, 255, 255, 0.3)')}
+                      onMouseLeave={(e) => (e.target.style.background = 'rgba(255, 255, 255, 0.2)')}
+                    >
+                      {isExporting ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i>
+                          <span>Export...</span>
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-image"></i>
+                          <span>PNG</span>
+                        </>
+                      )}
+                    </button>
+                    
+                    <button 
+                      onClick={() => exportChart('pdf')}
+                      disabled={isExporting}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 12px',
+                        border: 'none',
+                        borderRadius: '6px',
+                        background: 'rgba(255, 255, 255, 0.2)',
+                        color: 'white',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        cursor: isExporting ? 'not-allowed' : 'pointer',
+                        opacity: isExporting ? 0.6 : 1,
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => !isExporting && (e.target.style.background = 'rgba(255, 255, 255, 0.3)')}
+                      onMouseLeave={(e) => (e.target.style.background = 'rgba(255, 255, 255, 0.2)')}
+                    >
+                      {isExporting ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i>
+                          <span>Export...</span>
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-file-pdf"></i>
+                          <span>PDF</span>
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+                
+                <button 
+                  className="chart-close-btn"
+                  onClick={() => {
+                    console.log("❌ [Donut] Bouton fermeture cliqué");
+                    setIsExpanded(false);
+                    setViewMode('categories');
+                    buildCategoryData(allStats);
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
             <div className="chart-expanded-content">
               <canvas ref={modalChartRef} />

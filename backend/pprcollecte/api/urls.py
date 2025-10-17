@@ -1,7 +1,7 @@
 # api/urls.py - Version corrigée sans doublons
 from django.urls import path, include
 from .views import (
-    LoginAPIView, PisteListCreateAPIView,
+    LoginAPIView, TokenRefreshAPIView,PisteListCreateAPIView,
     ServicesSantesListCreateAPIView, AutresInfrastructuresListCreateAPIView, BacsListCreateAPIView,
     BatimentsAdministratifsListCreateAPIView, BusesListCreateAPIView, DalotsListCreateAPIView,
     EcolesListCreateAPIView, InfrastructuresHydrauliquesListCreateAPIView, LocalitesListCreateAPIView,
@@ -15,6 +15,7 @@ from .geographic_api import GeographyHierarchyAPIView, ZoomToLocationAPIView
 urlpatterns = [
     #  APIs principales
     path('api/login/', LoginAPIView.as_view(), name='api-login'),
+    path('api/token/refresh/', TokenRefreshAPIView.as_view(), name='api-token-refresh'),
     path('api/users/', UserManagementAPIView.as_view(), name='api-user-management'),
     path('api/users/<int:user_id>/', UserManagementAPIView.as_view(), name='api-user-detail'),
 

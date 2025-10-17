@@ -1,10 +1,15 @@
 from django.shortcuts import render
+from django.db import transaction 
+from .auth_utils import PasswordHasher, JWTManager
 
 # Create your views here.
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import generics
+
+from django.db.models import Count, Q
+from django.contrib.gis.db.models.functions import Length, Transform
 
 from .models import Login
 from .serializers import LoginSerializer, PisteSerializer
@@ -98,31 +103,106 @@ class PontsListCreateAPIView(generics.ListCreateAPIView):
 
 
 class LoginAPIView(APIView):
-     # GET pour récupérer tous les utilisateurs
+    """
+    API d'authentification sécurisée avec JWT
+    - POST: Connexion avec email/password
+    - GET: Liste des utilisateurs
+    """
+    
     def get(self, request):
-        users = Login.objects.all()
+        """Récupérer tous les utilisateurs"""
+        users = Login.objects.select_related(
+            'communes_rurales_id',
+            'communes_rurales_id__prefectures_id',
+            'communes_rurales_id__prefectures_id__regions_id'
+        ).all()
         serializer = LoginSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+    def post(self, request):
+        """Authentification sécurisée avec JWT - RÉSERVÉE AUX ADMINS"""
+        mail = request.data.get('mail', '').strip()
+        mdp = request.data.get('mdp', '')
+        
+        # Validation des entrées
+        if not mail or not mdp:
+            return Response({
+                "success": False,
+                "error": "Email et mot de passe requis"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Recherche utilisateur
+        try:
+            user = Login.objects.select_related(
+                'communes_rurales_id',
+                'communes_rurales_id__prefectures_id',
+                'communes_rurales_id__prefectures_id__regions_id'
+            ).get(mail=mail)
+        except Login.DoesNotExist:
+            return Response({
+                "success": False,
+                "error": "Email ou mot de passe incorrect"
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Vérification du mot de passe
+        if not PasswordHasher.verify_password(mdp, user.mdp):
+            return Response({
+                "success": False,
+                "error": "Email ou mot de passe incorrect"
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # 🔒 BLOQUER LES UTILISATEURS NORMAUX
+        if user.role not in ['admin', 'super_admin']:
+            return Response({
+                "success": False,
+                "error": "Connexion réservée aux administrateurs uniquement"
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Migration progressive des anciens mots de passe
+        if PasswordHasher.needs_rehash(user.mdp):
+            with transaction.atomic():
+                user.mdp = PasswordHasher.hash_password(mdp)
+                user.save(update_fields=['mdp'])
+                print(f"✅ Mot de passe migré pour {user.mail}")
+        
+        # Génération des tokens JWT
+        tokens = JWTManager.generate_tokens(user)
+        user_data = JWTManager.format_user_data(user)
+        
+        return Response({
+            "success": True,
+            "user": user_data,
+            "tokens": tokens,
+            "message": "Connexion réussie"
+        }, status=status.HTTP_200_OK)
+
+class TokenRefreshAPIView(APIView):
+    """Rafraîchir l'access token avec un refresh token"""
     
     def post(self, request):
-        mail = request.data.get('mail')
-        mdp = request.data.get('mdp')
-
-        if not mail or not mdp:
-            return Response({"error": "Mail et mot de passe requis"}, status=status.HTTP_400_BAD_REQUEST)
-
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from rest_framework_simplejwt.exceptions import TokenError
+        
+        refresh_token = request.data.get('refresh')
+        
+        if not refresh_token:
+            return Response({
+                "success": False,
+                "error": "Refresh token requis"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
-            user = Login.objects.get(mail=mail)
-        except Login.DoesNotExist:
-            return Response({"error": "Utilisateur non trouvé"}, status=status.HTTP_404_NOT_FOUND)
-
-        if user.mdp != mdp:
-            return Response({"error": "Mot de passe incorrect"}, status=status.HTTP_401_UNAUTHORIZED)
-
-        serializer = LoginSerializer(user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
+            refresh = RefreshToken(refresh_token)
+            return Response({
+                "success": True,
+                "access": str(refresh.access_token),
+                "expires_in": 3600
+            }, status=status.HTTP_200_OK)
+        except TokenError:
+            return Response({
+                "success": False,
+                "error": "Token invalide ou expiré"
+            }, status=status.HTTP_401_UNAUTHORIZED)
 
 class PisteListCreateAPIView(generics.ListCreateAPIView):
     queryset = Piste.objects.all()
@@ -130,6 +210,99 @@ class PisteListCreateAPIView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save()
+
+    def get(self, request):
+        try:
+            # Utilisation ORM avec annotations
+            pistes = Piste.objects.select_related(
+                'login_id',  # Relation vers utilisateur
+                'communes_rurales_id'  # Relation vers commune
+            ).annotate(
+                # Calcul kilométrage avec ORM PostGIS
+                kilometrage=Length(Transform('geom', 3857)) / 1000,
+                
+                # Comptage infrastructures par type avec ORM
+                nb_buses=Count('buses', filter=Q(buses__code_piste__isnull=False)),
+                nb_ponts=Count('ponts', filter=Q(ponts__code_piste__isnull=False)),
+                nb_dalots=Count('dalots', filter=Q(dalots__code_piste__isnull=False)),
+                nb_bacs=Count('bacs', filter=Q(bacs__code_piste__isnull=False)),
+                nb_ecoles=Count('ecoles', filter=Q(ecoles__code_piste__isnull=False)),
+                nb_marches=Count('marches', filter=Q(marches__code_piste__isnull=False)),
+                nb_services_santes=Count('servicessantes', filter=Q(servicessantes__code_piste__isnull=False)),
+                nb_autres_infrastructures=Count('autresinfrastructures', filter=Q(autresinfrastructures__code_piste__isnull=False)),
+                nb_batiments_administratifs=Count('batimentsadministratifs', filter=Q(batimentsadministratifs__code_piste__isnull=False)),
+                nb_infrastructures_hydrauliques=Count('infrastructureshydrauliques', filter=Q(infrastructureshydrauliques__code_piste__isnull=False)),
+                nb_localites=Count('localites', filter=Q(localites__code_piste__isnull=False)),
+                nb_passages_submersibles=Count('passagessubmersibles', filter=Q(passagessubmersibles__code_piste__isnull=False))
+            ).order_by('-created_at')
+            
+            # Sérialisation des données
+            pistes_data = []
+            for piste in pistes:
+                # Gestion des NULL avec ORM
+                utilisateur_nom = piste.login_id.nom_complet if piste.login_id else "Non assigné"
+                utilisateur_email = piste.login_id.email if piste.login_id else ""
+                commune_nom = piste.communes_rurales_id.nom if piste.communes_rurales_id else "Non assignée"
+                
+                # Calcul total infrastructures
+                total_infrastructures = (
+                    piste.nb_buses + piste.nb_ponts + piste.nb_dalots +
+                    piste.nb_bacs + piste.nb_ecoles + piste.nb_marches +
+                    piste.nb_services_santes + piste.nb_autres_infrastructures +
+                    piste.nb_batiments_administratifs + piste.nb_infrastructures_hydrauliques +
+                    piste.nb_localites + piste.nb_passages_submersibles
+                )
+                
+                piste_data = {
+                    'id': piste.id,
+                    'code_piste': piste.code_piste,
+                    'nom_complet': f"{piste.nom_origine_piste} → {piste.nom_destination_piste}",
+                    'nom_origine': piste.nom_origine_piste,
+                    'nom_destination': piste.nom_destination_piste,
+                    'utilisateur': utilisateur_nom,
+                    'utilisateur_email': utilisateur_email,
+                    'commune': commune_nom,
+                    'kilometrage': round(float(piste.kilometrage or 0), 2),
+                    'total_infrastructures': total_infrastructures,
+                    'infrastructures_par_type': {
+                        'Buses': piste.nb_buses,
+                        'Ponts': piste.nb_ponts,
+                        'Dalots': piste.nb_dalots,
+                        'Bacs': piste.nb_bacs,
+                        'Écoles': piste.nb_ecoles,
+                        'Marchés': piste.nb_marches,
+                        'Services Santé': piste.nb_services_santes,
+                        'Autres Infrastructures': piste.nb_autres_infrastructures,
+                        'Bâtiments Administratifs': piste.nb_batiments_administratifs,
+                        'Infrastructures Hydrauliques': piste.nb_infrastructures_hydrauliques,
+                        'Localités': piste.nb_localites,
+                        'Passages Submersibles': piste.nb_passages_submersibles
+                    },
+                    'created_at': piste.created_at,
+                    'updated_at': piste.updated_at
+                }
+                
+                pistes_data.append(piste_data)
+            
+            return Response({
+                'success': True,
+                'data': {
+                    'pistes': pistes_data,
+                    'total_pistes': len(pistes_data),
+                    'resume': {
+                        'pistes_avec_utilisateur': len([p for p in pistes_data if p['utilisateur'] != 'Non assigné']),
+                        'pistes_sans_utilisateur': len([p for p in pistes_data if p['utilisateur'] == 'Non assigné']),
+                        'kilometrage_total': sum([p['kilometrage'] for p in pistes_data]),
+                        'total_infrastructures': sum([p['total_infrastructures'] for p in pistes_data])
+                    }
+                }
+            })
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': f'Erreur lors de la récupération des données: {str(e)}'
+            })
 
 class UserManagementAPIView(APIView):
     """API dédiée à la gestion des utilisateurs par le super_admin"""
@@ -226,3 +399,131 @@ class UserManagementAPIView(APIView):
             }, status=status.HTTP_200_OK)
         except Login.DoesNotExist:
             return Response({"error": "Utilisateur non trouvé"}, status=status.HTTP_404_NOT_FOUND)
+        
+class RegionsListAPIView(APIView):
+    """
+    API pour récupérer toutes les régions
+    Modifiée pour le filtrage géographique
+    """
+    def get(self, request):
+        try:
+            from .models import Regions
+            
+            regions = Regions.objects.all().order_by('nom')
+            
+            data = []
+            for region in regions:
+                region_data = {
+                    'id': region.id,
+                    'nom': region.nom,
+                }
+                # Ajouter la géométrie si elle existe
+                if region.geom:
+                    region_data['geom'] = json.loads(region.geom.geojson)
+                    
+                data.append(region_data)
+            
+            return Response(data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PrefecturesFilteredAPIView(APIView):
+    """
+    API pour récupérer les préfectures avec filtrage par région
+    """
+    def get(self, request):
+        try:
+            from .models import Prefectures
+            
+            region_id = request.GET.get('region_id')
+            
+            if region_id:
+                prefectures = Prefectures.objects.filter(
+                    regions_id=region_id
+                ).select_related('regions_id').order_by('nom')
+            else:
+                prefectures = Prefectures.objects.all().select_related(
+                    'regions_id'
+                ).order_by('nom')
+            
+            data = []
+            for prefecture in prefectures:
+                prefecture_data = {
+                    'id': prefecture.id,
+                    'nom': prefecture.nom,
+                    'regions_id': prefecture.regions_id.id if prefecture.regions_id else None,
+                    'region_nom': prefecture.regions_id.nom if prefecture.regions_id else None,
+                }
+                # Ajouter la géométrie si elle existe
+                if prefecture.geom:
+                    prefecture_data['geom'] = json.loads(prefecture.geom.geojson)
+                    
+                data.append(prefecture_data)
+            
+            return Response(data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class CommunesFilteredAPIView(APIView):
+    """
+    API pour récupérer les communes avec filtrage par préfecture ou région
+    """
+    def get(self, request):
+        try:
+            from .models import CommunesRurales
+            
+            prefecture_id = request.GET.get('prefecture_id')
+            region_id = request.GET.get('region_id')
+            
+            queryset = CommunesRurales.objects.all()
+            
+            if prefecture_id:
+                queryset = queryset.filter(prefectures_id=prefecture_id)
+            elif region_id:
+                queryset = queryset.filter(
+                    prefectures_id__regions_id=region_id
+                )
+            
+            communes = queryset.select_related(
+                'prefectures_id', 
+                'prefectures_id__regions_id'
+            ).order_by('nom')
+            
+            data = []
+            for commune in communes:
+                commune_data = {
+                    'id': commune.id,
+                    'nom': commune.nom,
+                    'prefectures_id': commune.prefectures_id.id if commune.prefectures_id else None,
+                    'prefecture': commune.prefectures_id.nom if commune.prefectures_id else None,
+                    'region': commune.prefectures_id.regions_id.nom if commune.prefectures_id and commune.prefectures_id.regions_id else None,
+                }
+                
+                # Ajouter la géométrie et les bounds
+                if commune.geom:
+                    commune_data['geom'] = json.loads(commune.geom.geojson)
+                    # Calculer les bounds (envelope)
+                    envelope = commune.geom.envelope
+                    if envelope:
+                        commune_data['bounds'] = json.loads(envelope.geojson)
+                    
+                data.append(commune_data)
+            
+            return Response(data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+

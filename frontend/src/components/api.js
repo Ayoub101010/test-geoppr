@@ -40,7 +40,7 @@ class DataCache {
       if (result.success) {
         this.collectesData = result.data;
         this.lastFetchTime = Date.now();
-        console.log(`✅ Cache mis à jour: ${result.data.features?.length || 0} features`);
+        console.log(`✅ Cache API: ${result.data.features?.length || 0} features TOTALES chargées`);
       }
 
       return result;
@@ -53,10 +53,11 @@ class DataCache {
   }
 
   async _fetchCollectesData() {
-    const url = `${API_BASE_URL}/collectes/`;
+    // ✅ MODIFICATION : S'assurer qu'on charge TOUTES les données sans paramètres
+    const url = `${API_BASE_URL}/collectes/`; // Sans aucun paramètre !
     
     try {
-      const response = await fetch(url, {
+        const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
         },

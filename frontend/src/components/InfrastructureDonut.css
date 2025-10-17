@@ -1,3 +1,5 @@
+/* InfrastructureDonut.css - Version corrigée */
+
 .donut-wrapper {
   background-color: white;
   padding: 1rem 1.2rem;
@@ -5,6 +7,8 @@
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.05);
   margin-top: 1rem;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  max-width: 100%; /* ✅ Empêcher débordement */
+  overflow: hidden; /* ✅ Cacher débordement */
 }
 
 .donut-wrapper:hover {
@@ -20,10 +24,22 @@
 }
 
 .chart-container {
-  height: 180px;
+  height: 300px; /* ✅ Augmenté de 180px à 300px */
+  max-height: 400px; /* ✅ Hauteur maximale */
+  width: 100%; /* ✅ Largeur responsive */
   position: relative;
   margin-bottom: 0.8rem;
   cursor: pointer;
+  display: flex; /* ✅ Centrer le canvas */
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-container canvas {
+  max-width: 100% !important; /* ✅ Forcer canvas responsive */
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
 }
 
 .chart-container:hover {
@@ -36,7 +52,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 180px;
+  height: 300px; /* ✅ Même hauteur que chart-container */
   color: #64748b;
 }
 
@@ -69,12 +85,15 @@
   justify-content: center;
   z-index: 10000;
   animation: fadeIn 0.3s ease;
+  padding: 20px; /* ✅ Padding pour petits écrans */
 }
 
 .chart-expanded {
   background: white;
-  width: 85vw;
-  height: 80vh;
+  width: 90vw; /* ✅ Plus large */
+  max-width: 1400px; /* ✅ Largeur max pour grands écrans */
+  height: 85vh; /* ✅ Plus haut */
+  max-height: 900px; /* ✅ Hauteur max */
   border-radius: 16px;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
   display: flex;
@@ -100,12 +119,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0; /* ✅ Ne pas rétrécir le header */
+  min-height: 70px; /* ✅ Hauteur minimale */
 }
 
 .chart-expanded-header h3 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
+  flex: 1; /* ✅ Prendre l'espace disponible */
 }
 
 .chart-close-btn {
@@ -120,7 +142,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
+  flex-shrink: 0; /* ✅ Ne pas rétrécir le bouton */
 }
 
 .chart-close-btn:hover {
@@ -130,34 +153,137 @@
 
 .chart-expanded-content {
   flex: 1;
-  padding: 30px;
-  overflow: hidden;
+  padding: 40px; /* ✅ Plus de padding */
+  overflow: auto; /* ✅ Scroll si nécessaire */
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 0; /* ✅ Permettre flexbox de réduire */
+  background: #fafafa; /* ✅ Fond léger pour contraste */
 }
 
 .chart-expanded-content canvas {
-  max-width: 100%;
-  max-height: 100%;
+  max-width: 95% !important; /* ✅ Canvas responsive avec marge */
+  max-height: 95% !important;
+  width: auto !important;
+  height: auto !important;
+  margin: auto; /* ✅ Centrer le canvas */
 }
 
-/* Responsive */
+/* Responsive tablettes */
+@media (max-width: 1024px) {
+  .chart-container {
+    height: 260px;
+  }
+  
+  .chart-loading, .chart-empty {
+    height: 260px;
+  }
+  
+  .chart-expanded {
+    width: 92vw;
+    height: 88vh;
+  }
+  
+  .chart-expanded-content {
+    padding: 30px;
+  }
+}
+
+/* Responsive mobiles */
 @media (max-width: 768px) {
+  .chart-container {
+    height: 240px;
+  }
+  
+  .chart-loading, .chart-empty {
+    height: 240px;
+  }
+  
   .chart-expanded {
     width: 95vw;
-    height: 85vh;
+    height: 90vh;
   }
   
   .chart-expanded-header {
     padding: 15px 20px;
+    min-height: 60px;
   }
   
   .chart-expanded-header h3 {
-    font-size: 18px;
+    font-size: 16px;
+  }
+  
+  .chart-close-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
   }
   
   .chart-expanded-content {
     padding: 20px;
+  }
+}
+
+/* Responsive petits mobiles */
+@media (max-width: 480px) {
+  .donut-wrapper {
+    padding: 0.8rem 1rem;
+  }
+  
+  .donut-wrapper h2 {
+    font-size: 0.9rem;
+  }
+  
+  .chart-container {
+    height: 220px;
+  }
+  
+  .chart-loading, .chart-empty {
+    height: 220px;
+  }
+  
+  .chart-expanded {
+    width: 98vw;
+    height: 92vh;
+    border-radius: 12px;
+  }
+  
+  .chart-expanded-header {
+    padding: 12px 16px;
+    min-height: 50px;
+  }
+  
+  .chart-expanded-header h3 {
+    font-size: 14px;
+  }
+  
+  .chart-close-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  
+  .chart-expanded-content {
+    padding: 16px;
+  }
+}
+
+/* Impression */
+@media print {
+  .chart-overlay {
+    position: static;
+    background: none;
+    backdrop-filter: none;
+  }
+  
+  .chart-expanded {
+    width: 100%;
+    height: auto;
+    box-shadow: none;
+  }
+  
+  .chart-expanded-header button {
+    display: none; /* ✅ Masquer les boutons à l'impression */
   }
 }

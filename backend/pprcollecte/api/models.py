@@ -24,7 +24,7 @@ class Login(models.Model):
     def __str__(self):
         return f"{self.nom} {self.prenom} ({self.mail})"
 
-    # NOUVELLES MÃ‰THODES Ã€ AJOUTER :
+    
     @property
     def commune_complete(self):
         """Retourne les informations complÃ¨tes de localisation"""

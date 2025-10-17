@@ -1,204 +1,177 @@
 // src/components/UserPage.js
 import React, { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import geoLogo from "../assets/GeoPPR_Logo.png";
 import "leaflet/dist/leaflet.css";
-import TimeChart from "./TimeChart";
 import InfrastructureDonut from "./InfrastructureDonut";
-import RadarChartComponent from "./RadarChart";
 import BarChart from "./BarChart";
 import MapContainer from "./MapContainer";
-import "./SuperAdminPage.css"; // Utilise le même CSS
-import CommuneSelector from './CommuneSelector';
+import "./SuperAdminPage.css"; 
+import GeographicFilter from './GeographicFilterWithZoom';
+import { useAuth } from './AuthContext'; // ✅ AJOUTÉ
 
 const UserPage = () => {
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const profileRef = useRef(null);
+  const navigate = useNavigate();
+  const { logout } = useAuth(); // ✅ AJOUTÉ
+  const [currentView, setCurrentView] = useState("map");
+  const isFirstRender = useRef(true);
 
-  // États des filtres
+  //  Forcer la déconnexion pour l'accès public
+  useEffect(() => {
+    logout(); // Nettoie complètement l'authentification
+    console.log('🌐 Mode accès public activé - utilisateur déconnecté');
+  }, []); // S'exécute une seule fois au montage
+
+  // État pour les filtres avec tous les types activés par défaut
   const [filters, setFilters] = useState({
-    region: "",
-    prefecture: "",
-    commune: "",
+    region_id: "",
+    prefecture_id: "",
     commune_id: "",
-    types: new Set(),
+    types: new Set([
+      "pistes", "chaussees", "localites", "ecoles", "marches",
+      "batiments_administratifs", "infrastructures_hydrauliques",
+      "services_santes", "autres_infrastructures", "buses",
+      "dalots", "ponts", "passages_submersibles", "bacs"
+    ])
   });
 
-  const getActiveFilters = () => {
-    const region = document.getElementById("regionFilter")?.value || "";
-    const prefecture = document.getElementById("prefectureFilter")?.value || "";
-    const commune_id = document.getElementById("communeFilter")?.value || "";
+  // ... reste du code inchangé
 
-    const checkedTypes = Array.from(
-      document.querySelectorAll(
-        ".filter-checkbox-group input[type='checkbox']:checked"
-      )
-    ).map((cb) => cb.id);
-
-    return {
-      region,
-      prefecture,
-      commune_id,
-      types: new Set(checkedTypes),
-    };
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (profileRef.current && !profileRef.current.contains(event.target)) {
-        setShowProfileMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  useEffect(() => {
-    const exportBtn = document.getElementById("exportBtn");
-    const dropdown = document.querySelector(".export-dropdown");
-
-    const toggleDropdown = () => {
-      dropdown?.classList.toggle("show");
-    };
-
-    if (exportBtn) {
-      exportBtn.addEventListener("click", toggleDropdown);
+  // Utiliser useCallback pour éviter les re-créations de fonction
+  const handleGeographicFiltersChange = React.useCallback((geoFilters) => {
+    // Éviter les mises à jour lors du premier rendu
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
     }
 
-    const allInputs = document.querySelectorAll(
-      ".filter-select, .filter-checkbox-group input"
-    );
-
-    const handleChange = () => {
-      setFilters(getActiveFilters());
-    };
-
-    allInputs.forEach((input) => {
-      input.addEventListener("change", handleChange);
-    });
-
-    // Init au montage
-    handleChange();
-
-    return () => {
-      if (exportBtn) {
-        exportBtn.removeEventListener("click", toggleDropdown);
+    // Vérifier si les valeurs ont réellement changé
+    setFilters((prev) => {
+      if (
+        prev.region_id === geoFilters.region_id &&
+        prev.prefecture_id === geoFilters.prefecture_id &&
+        prev.commune_id === geoFilters.commune_id
+      ) {
+        return prev; // Pas de changement, retourner l'état précédent
       }
-      allInputs.forEach((input) => {
-        input.removeEventListener("change", handleChange);
-      });
-    };
+
+      // Émettre l'événement seulement si les valeurs ont changé
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("geographicFilterChanged", {
+            detail: geoFilters,
+          })
+        );
+      }, 100);
+
+      return {
+        ...prev,
+        region_id: geoFilters.region_id,
+        prefecture_id: geoFilters.prefecture_id,
+        commune_id: geoFilters.commune_id,
+      };
+    });
   }, []);
 
-  return (
-    <div className="superadmin-wrapper"> {/* Utilise la même classe pour cohérence CSS */}
-      {/* Overlay export */}
-      <div className="export-overlay" id="exportOverlay">
-        <div className="export-loading">
-          <div className="export-spinner"></div>
-          <p>Génération de l'export en cours...</p>
-        </div>
-      </div>
+  // Gestion des changements de types d'infrastructures
+  const handleTypeFilterChange = (typeId, checked) => {
+    setFilters(prev => {
+      const newTypes = new Set(prev.types);
+      if (checked) {
+        newTypes.add(typeId);
+      } else {
+        newTypes.delete(typeId);
+      }
+      return { ...prev, types: newTypes };
+    });
 
-      {/* Header simplifié pour utilisateurs publics */}
+    // Émettre l'événement pour les autres composants
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("typeFilterChanged", {
+          detail: { typeId, checked },
+        })
+      );
+    }, 100);
+  };
+
+  // Retour à la page de connexion
+  const handleBackToLogin = () => {
+    navigate("/");
+  };
+
+  return (
+    <div className="superadmin-wrapper">
+      {/* Header */}
       <div className="header">
         <div className="logo">
-          <img src={geoLogo} alt="Logo GeoPPR" />
+          <img src={geoLogo} alt="GeoPPR Logo" />
         </div>
-        
-        {/* Navigation simplifiée - seulement Carte */}
+
         <div className="nav-menu">
-          <div className="nav-item active">
-            <i className="fas fa-map"></i> Carte Interactive
+          <div
+            className={`nav-item ${currentView === "map" ? "active" : ""}`}
+            onClick={() => setCurrentView("map")}
+          >
+            <i className="fas fa-map"></i> Carte
           </div>
         </div>
 
-        {/* Profil simplifié */}
-        <div className="user-profile" ref={profileRef}>
-          <div 
-            className="profile-pic"
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
-            style={{ cursor: "pointer" }}
+        <div className="user-profile">
+          <div
+            className="nav-item active"
+            onClick={handleBackToLogin}
+            style={{ cursor: 'pointer' }}
           >
-            UP
+            <i className="fas fa-sign-in-alt"></i> Connexion
           </div>
-          <div className="user-info">
-            <h4>Utilisateur Public</h4>
-            <span>Accès Public</span>
-          </div>
-
-          {showProfileMenu && (
-            <div className="profile-dropdown">
-              <ul>
-                <li onClick={() => window.location.href = "/"}>
-                  <i className="fas fa-sign-in-alt"></i> Se connecter
-                </li>
-                <li onClick={() => alert("Plateforme GeoPPR - République de Guinée\nSuivi et évaluation des infrastructures")}>
-                  <i className="fas fa-info-circle"></i> À propos
-                </li>
-              </ul>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Contenu principal - Toujours afficher la carte */}
-      <div className="main-container">
-        {/* Sidebar avec filtres */}
+      {/* Vue Carte */}
+      <div
+        className="main-container"
+        style={{ display: currentView === "map" ? "flex" : "none" }}
+      >
         <div className="sidebar">
           {/* Filtres géographiques */}
           <div className="filter-section">
             <div className="filter-title">
-              <i className="fas fa-map-marker-alt"></i>
-              Localisation géographique
+              <i className="fas fa-map-marker-alt"></i> Localisation
             </div>
-            <div className="filter-group">
-              <div className="filter-label">Région</div>
-              <select className="filter-select" id="regionFilter">
-                <option value="">Toutes les régions</option>
-                <option value="conakry">Conakry</option>
-                <option value="boke">Boké</option>
-                <option value="kindia">Kindia</option>
-                <option value="mamou">Mamou</option>
-                <option value="labe">Labé</option>
-                <option value="faranah">Faranah</option>
-                <option value="kankan">Kankan</option>
-                <option value="nzerekore">Nzérékoré</option>
-              </select>
-            </div>
-            <div className="filter-group">
-              <div className="filter-label">Préfecture</div>
-              <select className="filter-select" id="prefectureFilter">
-                <option value="">Toutes les préfectures</option>
-              </select>
-            </div>
-            <div className="filter-group">
-              <div className="filter-label">Commune</div>
-              <CommuneSelector onCommuneChange={(communeId) => {
-                setFilters(prev => ({...prev, commune_id: communeId}));
-                
-                setTimeout(() => {
-                  window.dispatchEvent(new CustomEvent('communeFilterChanged', {
-                    detail: { commune_id: communeId }
-                  }));
-                }, 100);
-              }} />
-            </div>
+            <GeographicFilter
+              onFiltersChange={handleGeographicFiltersChange}
+              initialFilters={{
+                region_id: filters.region_id || "",
+                prefecture_id: filters.prefecture_id || "",
+                commune_id: filters.commune_id || "",
+              }}
+              showLabels={true}
+            />
           </div>
 
-          {/* Filtres géométrie */}
+          {/* Filtres voirie */}
           <div className="filter-section">
             <div className="filter-title">
-              <i className="fas fa-road"></i> Type de géométrie
+              <i className="fas fa-road"></i> Voirie
             </div>
             <div className="filter-checkbox-group">
               <div className="checkbox-item">
-                <input type="checkbox" id="pistes" defaultChecked />
+                <input 
+                  type="checkbox" 
+                  id="pistes" 
+                  checked={filters.types.has("pistes")}
+                  onChange={(e) => handleTypeFilterChange("pistes", e.target.checked)}
+                />
                 <label htmlFor="pistes">Pistes</label>
               </div>
               <div className="checkbox-item">
-                <input type="checkbox" id="chaussees" defaultChecked />
+                <input 
+                  type="checkbox" 
+                  id="chaussees" 
+                  checked={filters.types.has("chaussees")}
+                  onChange={(e) => handleTypeFilterChange("chaussees", e.target.checked)}
+                />
                 <label htmlFor="chaussees">Chaussées</label>
               </div>
             </div>
@@ -211,11 +184,6 @@ const UserPage = () => {
             </div>
             <div className="filter-checkbox-group">
               {[
-                ["buses", "Buses"],
-                ["dalots", "Dalots"],
-                ["ponts", "Ponts"],
-                ["passages_submersibles", "Passages submersibles"],
-                ["bacs", "Bacs"],
                 ["localites", "Localités"],
                 ["ecoles", "Écoles"],
                 ["marches", "Marchés"],
@@ -225,7 +193,38 @@ const UserPage = () => {
                 ["autres_infrastructures", "Autres infrastructures"],
               ].map(([id, label]) => (
                 <div className="checkbox-item" key={id}>
-                  <input type="checkbox" id={id} defaultChecked />
+                  <input 
+                    type="checkbox" 
+                    id={id} 
+                    checked={filters.types.has(id)}
+                    onChange={(e) => handleTypeFilterChange(id, e.target.checked)}
+                  />
+                  <label htmlFor={id}>{label}</label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Filtres ouvrages */}
+          <div className="filter-section">
+            <div className="filter-title">
+              <i className="fas fa-tools"></i> Ouvrages
+            </div>
+            <div className="filter-checkbox-group">
+              {[
+                ["buses", "Buses"],
+                ["dalots", "Dalots"],
+                ["ponts", "Ponts"],
+                ["passages_submersibles", "Passages submersibles"],
+                ["bacs", "Bacs"],
+              ].map(([id, label]) => (
+                <div className="checkbox-item" key={id}>
+                  <input 
+                    type="checkbox" 
+                    id={id} 
+                    checked={filters.types.has(id)}
+                    onChange={(e) => handleTypeFilterChange(id, e.target.checked)}
+                  />
                   <label htmlFor={id}>{label}</label>
                 </div>
               ))}
@@ -233,44 +232,15 @@ const UserPage = () => {
           </div>
         </div>
 
-        {/* Carte principale */}
+        {/* Contenu principal */}
         <div className="map-container">
           <MapContainer filters={filters} />
         </div>
 
-        {/* Panel de droite avec graphiques */}
+        {/* Panel de droite */}
         <div className="right-panel">
-          <div className="analytics-section">
-            <div className="analytics-title">
-              <i className="fas fa-chart-area"></i>
-              Analyses Temporelles
-            </div>
-            <TimeChart />
-          </div>
-
-          <div className="analytics-section">
-            <div className="analytics-title">
-              <i className="fas fa-chart-pie"></i>
-              Répartition par Type
-            </div>
-            <InfrastructureDonut filters={filters} />
-          </div>
-
-          <div className="analytics-section">
-            <div className="analytics-title">
-              <i className="fas fa-chart-bar"></i>
-              Analyse Comparative
-            </div>
-            <RadarChartComponent />
-          </div>
-
-          <div className="analytics-section">
-            <div className="analytics-title">
-              <i className="fas fa-chart-column"></i>
-              Statistiques Régionales
-            </div>
-            <BarChart />
-          </div>
+          <InfrastructureDonut filters={filters} />
+          <BarChart filters={filters} />
         </div>
       </div>
     </div>

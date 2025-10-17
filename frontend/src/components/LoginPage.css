@@ -60,7 +60,7 @@
 /* Partie gauche */
 .loginpage-wrapper .left-panel {
   flex: 1;
-  background-color: #36022e;
+  background-color: #2E7D32;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -92,7 +92,7 @@
   width: 240px;
   font-size: 16px;
   color: white;
-  background: linear-gradient(135deg, #ff6ec4, #7873f5);
+  background: linear-gradient(135deg, #F9A825, #2E7D32);
   border: none;
   border-radius: 12px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
@@ -103,7 +103,7 @@
 }
 
 .loginpage-wrapper .left-panel button:hover {
-  background: linear-gradient(135deg, #f94fb0, #5c53e6);
+  background: linear-gradient(135deg, #F57F17, #1B5E20);
   transform: scale(1.05);
 }
 
@@ -135,7 +135,7 @@
 .loginpage-wrapper .form-group input {
   padding: 14px;
   margin-bottom: 16px;
-  border: 2px solid #e91e63;
+  border: 2px solid #388E3C;
   border-radius: 10px;
   background-color: white;
   color: #333;
@@ -147,7 +147,7 @@
 }
 
 .loginpage-wrapper .form-group input:focus {
-  border-color: #9c27b0;
+  border-color: #2E7D32;
   outline: none;
 }
 
@@ -157,7 +157,7 @@
 
 /* Bouton Connexion */
 .loginpage-wrapper .login-btn {
-  background: linear-gradient(to right, #9c27b0, #e91e63);
+  background: linear-gradient(to right, #2E7D32, #F9A825);
   color: white;
   font-weight: bold;
   padding: 12px;
@@ -165,7 +165,7 @@
   border-radius: 10px;
   cursor: pointer;
   width: 240px;
-  box-shadow: 0 4px 12px rgba(233, 30, 99, 0.4);
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.4);
   transition: opacity 0.3s;
 }
 

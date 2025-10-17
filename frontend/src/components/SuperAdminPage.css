@@ -135,7 +135,6 @@ body {
 
 /* Main Layout */
 .superadmin-wrapper .main-container {
-  display: flex;
   height: calc(100vh - 80px);
   font-size: 0.75rem;
 }
@@ -178,7 +177,7 @@ body {
   width: 100%;
 }
 
-.superadmin-wrapper .filter-select {
+.superadmin-wrapper .sidebar > .filter-section .filter-select {
   padding: 0.75rem;
   border: 2px solid #e1e8ed;
   border-radius: 8px;
@@ -594,7 +593,7 @@ superadmin-wrapper {
 .superadmin-wrapper .main-container {
   height: calc(100vh - 80px);
   overflow: hidden;
-  display: flex !important; /* Force l'affichage flex même si masqué temporairement */
+ 
 }
 
 /* Sidebar avec scroll interne seulement */
@@ -693,7 +692,7 @@ superadmin-wrapper {
 }
 .superadmin-wrapper .view-container {
   position: absolute;
-  top: 80px; /* Hauteur du header */
+  top: 80px;
   left: 0;
   right: 0;
   bottom: 0;
@@ -702,70 +701,12 @@ superadmin-wrapper {
   overflow-x: hidden;
   z-index: 100;
 }
-
-/* Vue Dashboard spécialisée */
-.superadmin-wrapper .dashboard-view {
-  /* Le composant Dashboard gère son propre style */
-}
-
-/* Vue Users spécialisée */
-.superadmin-wrapper .users-view {
-  /* Le composant GestionUserPage gère son propre style */
-}
-
-/* Correction du main-container pour éviter les conflits */
-.superadmin-wrapper .main-container {
-  position: relative;
-  height: calc(100vh - 80px);
-  overflow: hidden;
-  /* Supprimer display: flex !important qui causait des conflits */
-  display: flex;
-}
-
-/* Scrollbar personnalisée pour les vues */
-.superadmin-wrapper .view-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.superadmin-wrapper .view-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.superadmin-wrapper .view-container::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
-}
-
-.superadmin-wrapper .view-container::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
-}
-
-/* Responsive pour les nouvelles vues */
-@media (max-width: 768px) {
-  .superadmin-wrapper .view-container {
-    top: 70px; /* Header plus petit sur mobile */
-  }
-}
-
-/* Transition fluide entre les vues */
-.superadmin-wrapper .view-container,
-.superadmin-wrapper .main-container {
-  transition: opacity 0.2s ease-in-out;
-}
-
-/* Optimisation performance - éviter les repaint lors du changement de vue */
-.superadmin-wrapper .view-container[style*="none"],
+/* Force le respect du style inline */
 .superadmin-wrapper .main-container[style*="none"] {
-  visibility: hidden;
-  opacity: 0;
-  pointer-events: none;
+  display: none !important;
 }
 
-/* État actif des vues */
-.superadmin-wrapper .view-container[style*="block"],
 .superadmin-wrapper .main-container[style*="flex"] {
-  visibility: visible;
-  opacity: 1;
-  pointer-events: auto;
+  display: flex !important;
 }
+

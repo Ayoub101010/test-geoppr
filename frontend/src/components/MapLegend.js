@@ -5,18 +5,18 @@ const MapLegend = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [visibleTypes, setVisibleTypes] = useState(new Set());
 
-  // ✅ Configuration synchronisée avec MapContainer.js
+  //  Configuration synchronisée avec MapContainer.js
   const legendItems = [
     // Infrastructures de transport
-    { 
+      { 
       category: "Transport & Ouvrages",
       items: [
-        { type: "pistes", label: "Pistes", icon: "road", color: "#2C3E50" },
+        { type: "pistes", label: "Pistes", icon: "road", color: "#FF6B00", isDashed: true }, // ✅ Ajout
         { type: "ponts", label: "Ponts", icon: "bridge", color: "#9B59B6" },
-        { type: "buses", label: "Buses", icon: "bus", color: "#E74C3C" },
+        { type: "buses", label: "Buses", icon: "dot-circle", color: "#7F8C8D" },
         { type: "dalots", label: "Dalots", icon: "water", color: "#3498DB" },
-        { type: "bacs", label: "Bacs", icon: "ship", color: "#F39C12" },
-        { type: "passages_submersibles", label: "Passages submersibles", icon: "water", color: "#1ABC9C" }
+        { type: "bacs", label: "Bacs", icon: "ship", color: "#F39C12", showIcon: true }, // ✅ Ajout
+        { type: "passages_submersibles", label: "Passages submersibles", icon: "water", color: "#1ABC9C", showIcon: true } // ✅ Ajout
       ]
     },
     // Infrastructures rurales
@@ -34,7 +34,7 @@ const MapLegend = () => {
     }
   ];
 
-  // ✅ Surveiller les filtres actifs avec une meilleure synchronisation
+  //  Surveiller les filtres actifs avec une meilleure synchronisation
   useEffect(() => {
     const updateVisibleTypes = () => {
       const checkedTypes = Array.from(
@@ -77,7 +77,7 @@ const MapLegend = () => {
     };
   }, []);
 
-  // ✅ Forcer une mise à jour périodique pour détecter les changements
+  //  Forcer une mise à jour périodique pour détecter les changements
   useEffect(() => {
     const interval = setInterval(() => {
       const checkedTypes = Array.from(
@@ -101,6 +101,50 @@ const MapLegend = () => {
   };
 
   const createLegendIcon = (item) => {
+      // ✅ Lignes pointillées pour pistes
+      if (item.isDashed) {
+        return (
+          <div 
+            className="legend-line-icon"
+            style={{ 
+              width: '30px',
+              height: '4px',
+              background: `repeating-linear-gradient(
+                to right,
+                ${item.color} 0px,
+                ${item.color} 6px,
+                transparent 6px,
+                transparent 12px
+              )`,
+              borderRadius: '2px'
+            }}
+          />
+        );
+      }
+      
+      // ✅ Icône + ligne pour bacs et passages
+      if (item.showIcon) {
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div 
+              className="legend-icon"
+              style={{ backgroundColor: item.color }}
+            >
+              <i className={`fas fa-${item.icon}`}></i>
+            </div>
+            <div 
+              style={{ 
+                width: '10px',
+                height: '2px',
+                backgroundColor: item.color,
+                borderRadius: '1px'
+              }}
+            />
+          </div>
+        );
+      }
+    
+    // Icône normale
     return (
       <div 
         className="legend-icon"
@@ -111,7 +155,7 @@ const MapLegend = () => {
     );
   };
 
-  // ✅ Fonction pour obtenir tous les types disponibles
+  //  Fonction pour obtenir tous les types disponibles
   const getAllLegendTypes = () => {
     return legendItems.flatMap(category => category.items.map(item => item.type));
   };
