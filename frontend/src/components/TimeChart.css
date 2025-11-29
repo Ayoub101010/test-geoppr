@@ -204,58 +204,26 @@
 
 /* Filtres dans la modal */
 .modal-filters {
-  padding: 1rem 1.5rem;
+  padding: 0.5rem 1.5rem;
   background: #f8f9fa;
   border-bottom: 1px solid #e9ecef;
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem;
+  gap: 1rem;
   align-items: end;
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.3rem;
 }
 
 .filter-group label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: #495057;
-}
-
-.time-scale-buttons {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.scale-btn {
-  padding: 0.4rem 0.8rem;
-  border: 1px solid #ced4da;
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  transition: all 0.2s ease;
-}
-
-.scale-btn:hover {
-  border-color: #2980b9;
-  color: #2980b9;
-}
-
-.scale-btn.active {
-  background: #2980b9;
-  color: white;
-  border-color: #2980b9;
-}
-
-.scale-limits {
-  font-size: 0.75rem;
-  color: #6c757d;
-  margin-top: 0.3rem;
-  font-style: italic;
+  margin-bottom: 0;
 }
 
 .date-range {
@@ -265,7 +233,7 @@
 }
 
 .date-range input {
-  padding: 0.4rem;
+  padding: 0.35rem;
   border: 1px solid #ced4da;
   border-radius: 4px;
   font-size: 0.8rem;
@@ -282,7 +250,7 @@
 }
 
 .apply-btn, .reset-btn {
-  padding: 0.4rem 1rem;
+  padding: 0.35rem 0.9rem;
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -311,14 +279,14 @@
 
 /* Informations sur la période */
 .period-info {
-  padding: 1rem 1.5rem;
+  padding: 0.6rem 1.5rem;
   border-bottom: 1px solid #e9ecef;
   background: #f8f9fa;
   font-size: 0.85rem;
 }
 
 .period-display {
-  padding: 0.8rem;
+  padding: 0.5rem 0.8rem;
   border-radius: 6px;
   border-left: 4px solid;
   background: white;
@@ -344,40 +312,256 @@
 
 .period-summary {
   font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.period-warning {
-  font-weight: 500;
-  margin-top: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.period-extension {
-  font-size: 0.8rem;
-  font-style: italic;
-  opacity: 0.9;
+  margin: 0;
 }
 
 .period-error {
   color: #721c24;
   font-weight: 500;
-  margin-top: 0.5rem;
+  margin-top: 0.3rem;
+}
+
+/* Wrapper pour le contenu exportable */
+.export-content-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  background: #f8f9fa;
+}
+
+/* Contrôles d'export (EN DEHORS du container exportable) */
+.export-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: white;
+  border-bottom: 1px solid #e9ecef;
+  margin-bottom: 1rem;
+}
+
+.export-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6c757d;
+  font-size: 0.85rem;
+}
+
+.export-info i {
+  color: #2980b9;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.export-container {
+  background: white;
+  margin: 0 1rem 1rem 1rem;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* En-tête avec titre UNIQUEMENT (boutons retirés) */
+.export-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.export-title {
+  color: #36022e;
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.export-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.export-png {
+  background: #27ae60;
+  color: white;
+}
+
+.export-png:hover:not(:disabled) {
+  background: #229954;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
+}
+
+.export-pdf {
+  background: #e74c3c;
+  color: white;
+}
+
+.export-pdf:hover:not(:disabled) {
+  background: #c0392b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+}
+
+.export-btn i {
+  font-size: 1rem;
 }
 
 /* Contenu du graphique modal */
 .modal-chart-content {
-  flex: 1;
-  padding: 1.5rem;
   position: relative;
-  overflow: hidden;
+  height: 350px;
+  margin-bottom: 2rem;
 }
 
 .modal-chart-content canvas {
   width: 100% !important;
   height: 100% !important;
+}
+
+/* Tableau récapitulatif */
+.summary-table-container {
+  margin-top: 2rem;
+}
+
+.summary-table-title {
+  color: #36022e;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.summary-table-title i {
+  color: #2980b9;
+}
+
+.summary-table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  font-size: 0.85rem;
+}
+
+.summary-table thead {
+  background: linear-gradient(135deg, #2980b9 0%, #36022e 100%);
+  color: white;
+}
+
+.summary-table th {
+  padding: 0.8rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.summary-table th.type-column {
+  min-width: 180px;
+  text-align: left;
+}
+
+.summary-table th.date-column {
+  min-width: 100px;
+  text-align: center;
+}
+
+.summary-table th.total-column {
+  min-width: 80px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.summary-table tbody tr {
+  border-bottom: 1px solid #e9ecef;
+  transition: background 0.2s ease;
+}
+
+.summary-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.summary-table tbody tr.total-row {
+  background: #f8f9fa;
+  font-weight: 600;
+  border-top: 2px solid #dee2e6;
+}
+
+.summary-table tbody tr.total-row:hover {
+  background: #e9ecef;
+}
+
+.summary-table td {
+  padding: 0.7rem 0.8rem;
+  border-right: 1px solid #f1f3f5;
+}
+
+.summary-table td:last-child {
+  border-right: none;
+}
+
+.summary-table .type-cell {
+  font-weight: 500;
+  color: #2d3748;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.type-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.summary-table .count-cell {
+  text-align: center;
+  color: #495057;
+}
+
+.summary-table .total-cell {
+  text-align: center;
+  font-weight: 600;
+  color: #2980b9;
+  background: #f8f9fa;
+}
+
+.summary-table tbody tr.total-row .type-cell {
+  color: #36022e;
+}
+
+.summary-table tbody tr.total-row .count-cell,
+.summary-table tbody tr.total-row .total-cell {
+  color: #36022e;
 }
 
 /* Responsive Design */
@@ -391,6 +575,40 @@
     flex-direction: column;
     align-items: stretch;
     gap: 1rem;
+  }
+
+  .export-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .export-info {
+    font-size: 0.8rem;
+  }
+
+  .export-buttons {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .export-container {
+    margin: 0 0.5rem 1rem 0.5rem;
+    padding: 1rem;
+  }
+
+  .export-title {
+    font-size: 1rem;
+  }
+
+  .summary-table {
+    font-size: 0.75rem;
+  }
+
+  .summary-table th,
+  .summary-table td {
+    padding: 0.5rem;
   }
 }
 
@@ -435,16 +653,6 @@
     gap: 1rem;
   }
   
-  .time-scale-buttons {
-    flex-direction: column;
-    width: 100%;
-  }
-  
-  .scale-btn {
-    width: 100%;
-    text-align: center;
-  }
-  
   .date-range {
     flex-direction: column;
     align-items: stretch;
@@ -465,11 +673,54 @@
   }
   
   .period-info {
-    padding: 0.8rem 1rem;
+    padding: 0.5rem 1rem;
   }
   
-  .modal-chart-content {
+  .export-container {
+    margin: 0.5rem;
     padding: 1rem;
+  }
+
+  .export-controls {
+    padding: 0.8rem 1rem;
+  }
+
+  .export-title {
+    font-size: 1rem;
+  }
+
+  .export-buttons {
+    width: 100%;
+  }
+
+  .export-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .modal-chart-content {
+    height: 250px;
+  }
+
+  .summary-table-title {
+    font-size: 0.95rem;
+  }
+
+  .summary-table {
+    font-size: 0.7rem;
+  }
+
+  .summary-table th,
+  .summary-table td {
+    padding: 0.4rem;
+  }
+
+  .summary-table th.type-column {
+    min-width: 120px;
+  }
+
+  .summary-table th.date-column {
+    min-width: 80px;
   }
 }
 
@@ -496,10 +747,28 @@
     height: 24px;
     border-width: 2px;
   }
+
+  .export-title {
+    font-size: 0.9rem;
+  }
+
+  .export-btn {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.75rem;
+  }
+
+  .summary-table {
+    font-size: 0.65rem;
+  }
+
+  .type-indicator {
+    width: 8px;
+    height: 8px;
+  }
 }
 
 /* États focus pour accessibilité */
-.scale-btn:focus,
+.export-btn:focus,
 .apply-btn:focus,
 .reset-btn:focus,
 .retry-btn:focus,
@@ -545,12 +814,6 @@
     border-color: #4a5568;
   }
   
-  .scale-btn {
-    background: #374151;
-    color: #e2e8f0;
-    border-color: #4a5568;
-  }
-  
   .date-range input {
     background: #374151;
     color: #e2e8f0;
@@ -574,5 +837,34 @@
   .period-display.error {
     background: #842029;
     color: #f8d7da;
+  }
+
+  .export-content-wrapper {
+    background: #2d3748;
+  }
+
+  .export-container {
+    background: #374151;
+  }
+
+  .export-title {
+    color: #e2e8f0;
+  }
+
+  .summary-table {
+    background: #374151;
+    color: #e2e8f0;
+  }
+
+  .summary-table tbody tr:hover {
+    background: #4a5568;
+  }
+
+  .summary-table tbody tr.total-row {
+    background: #4a5568;
+  }
+
+  .summary-table .total-cell {
+    background: #4a5568;
   }
 }

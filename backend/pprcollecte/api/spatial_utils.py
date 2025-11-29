@@ -1,7 +1,7 @@
-#  - Fonctions utilitaires pour GeoDjango
+#
 
-from django.contrib.gis.geos import GEOSGeometry
-from django.contrib.gis.db.models.functions import Transform
+from django.contrib.gis.geos import GEOSGeometry # type: ignore
+from django.contrib.gis.db.models.functions import Transform # type: ignore
 from .models import CommuneRurale, Prefecture, Region
 
 class GeoQueryHelper:

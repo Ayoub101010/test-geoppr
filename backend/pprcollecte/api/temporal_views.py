@@ -1,16 +1,16 @@
-from django.db.models import Count, Q, Min, Max
-from django.db.models.functions import TruncDate, TruncMonth, TruncYear, TruncWeek
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from django.db.models import Count, Q, Min, Max # type: ignore
+from django.db.models.functions import TruncDate, TruncMonth, TruncYear, TruncWeek # type: ignore
+from rest_framework.views import APIView # type: ignore
+from rest_framework.response import Response # type: ignore
 from datetime import datetime, timedelta, date
-from django.utils import timezone
-from django.db import connection
+from django.utils import timezone # type: ignore
+from django.db import connection # type: ignore
 from .models import *
 import re
 
 class TemporalAnalysisAPIView(APIView):
     """
-    API pour analyses temporelles - Version corrigée et optimisée
+    API pour analyses temporelles - Version finale sans erreur ValidationError
     """
     
     def get(self, request):
@@ -25,7 +25,7 @@ class TemporalAnalysisAPIView(APIView):
         specific_month = request.GET.get('month', '')
         specific_day = request.GET.get('day', '')
         
-        print(f"\n🔍 === ANALYSE TEMPORELLE CORRIGÉE ===")
+        print(f"\n🔍 === ANALYSE TEMPORELLE FINALE ===")
         print(f"📋 Paramètres: period_type={period_type}, types={types_param}")
         
         try:
@@ -37,8 +37,8 @@ class TemporalAnalysisAPIView(APIView):
                 types_param = list(models_config.keys())
                 print(f"✅ Types utilisés (tous): {types_param}")
             else:
-                # CORRECTION: Mapper les types frontend vers backend
-                types_param = self._map_frontend_types_corrected(types_param)
+                # Mapper les types frontend vers backend
+                types_param = self._map_frontend_types(types_param)
                 print(f"✅ Types mappés: {types_param}")
             
             # Déterminer la plage de dates
@@ -77,7 +77,7 @@ class TemporalAnalysisAPIView(APIView):
                 try:
                     if config['is_varchar_date']:
                         # Pour les champs VARCHAR, utiliser uniquement SQL direct
-                        type_results, debug_info = self._process_varchar_dates_sql_optimized(
+                        type_results, debug_info = self._process_varchar_dates_sql_only(
                             config, type_name, start_date, end_date, period_type, total_by_period
                         )
                     else:
@@ -144,40 +144,39 @@ class TemporalAnalysisAPIView(APIView):
             return Response({
                 'success': False,
                 'error': str(e),
-                'debug': 'Erreur dans TemporalAnalysisAPIView'
+                'debug': 'Erreur dans TemporalAnalysisAPIView finale'
             }, status=500)
     
-    def _process_varchar_dates_sql_optimized(self, config, type_name, start_date, end_date, 
-                                           period_type, total_by_period):
-        """Traitement SQL optimisé pour les champs VARCHAR date"""
+    def _process_varchar_dates_sql_only(self, config, type_name, start_date, end_date, 
+                                      period_type, total_by_period):
+        """Traitement UNIQUEMENT SQL pour éviter l'ORM Django"""
         
-        print(f"\n📊 Analyse {type_name.upper()} - VARCHAR (SQL OPTIMISÉ)")
+        print(f"\n📊 Analyse {type_name.upper()} - VARCHAR (SQL SEUL)")
         
         model = config['model']
         date_field = config['date_field']
         id_field = config['id_field']
         table_name = model._meta.db_table
         
-        # CORRECTION: Requête SQL plus robuste
+        # Requête SQL pure - AUCUN ORM
         raw_records = []
         
         try:
             with connection.cursor() as cursor:
-                # SQL amélioré avec filtrage plus strict
+                # Requête SQL directe avec filtrage strict
                 sql = f"""
                 SELECT {id_field}, {date_field}
                 FROM {table_name}
                 WHERE {date_field} IS NOT NULL 
                   AND {date_field} != ''
                   AND {date_field} != 'null'
-                  AND {date_field} != 'None'
-                  AND LENGTH(TRIM({date_field})) >= 10
-                  AND {date_field} ~ '^[0-9]{{4}}/[0-9]{{1,2}}/[0-9]{{1,2}}'
+                  AND LENGTH(TRIM({date_field})) > 10
+                  AND {date_field} LIKE '20%%/%%/%%'
                 ORDER BY {id_field}
-                LIMIT 2000
+                LIMIT 1000
                 """
                 
-                print(f"  🔍 SQL optimisé: {sql}")
+                print(f"  🔍 SQL: {sql}")
                 cursor.execute(sql)
                 raw_records = cursor.fetchall()
                 
@@ -193,14 +192,13 @@ class TemporalAnalysisAPIView(APIView):
         
         # Afficher exemples pour debug
         print(f"  📋 Exemples de dates:")
-        for i, record in enumerate(raw_records[:5]):
+        for i, record in enumerate(raw_records[:3]):
             print(f"    {i+1}. ID={record[0]}, Date='{record[1]}'")
         
-        # Parser avec gestion d'erreur améliorée
+        # Parser manuellement chaque date
         period_counts = {}
         valid_count = 0
         in_range_count = 0
-        error_count = 0
         
         start_date_only = start_date.date()
         end_date_only = end_date.date()
@@ -217,8 +215,8 @@ class TemporalAnalysisAPIView(APIView):
                 continue
             
             try:
-                # CORRECTION: Parser plus robuste
-                parsed_date = self._parse_varchar_date_enhanced(date_str_clean)
+                # Parsing pour format YYYY/MM/DD HH:MM:SS.mmm
+                parsed_date = self._parse_varchar_date_robust(date_str_clean)
                 
                 if parsed_date:
                     valid_count += 1
@@ -230,30 +228,23 @@ class TemporalAnalysisAPIView(APIView):
                         # Calculer la clé de période
                         period_key = self._get_period_key(parsed_date, period_type)
                         period_counts[period_key] = period_counts.get(period_key, 0) + 1
-                else:
-                    error_count += 1
                 
             except Exception as e:
-                error_count += 1
-                if error_count <= 3:  # Afficher seulement les 3 premières erreurs
-                    print(f"    ⚠️ Erreur parsing '{date_str_clean}': {e}")
                 continue
         
         print(f"  ✅ Dates valides: {valid_count}/{total_records}")
         print(f"  📅 Dans la période: {in_range_count}")
-        print(f"  ❌ Erreurs de parsing: {error_count}")
         print(f"  📊 Périodes trouvées: {len(period_counts)}")
         
-        # Convertir en format attendu avec tri correct
+        # Convertir en format attendu
         results = []
         for period_date, count in sorted(period_counts.items()):
-            period_str = self._format_period_corrected(period_date, period_type)
+            period_str = self._format_period(period_date, period_type)
             
             results.append({
                 'period': period_str,
                 'date': period_date.isoformat(),
-                'count': count,
-                'sort_key': period_date.isoformat()  # Clé de tri ISO
+                'count': count
             })
             
             # Ajouter au total global
@@ -265,7 +256,6 @@ class TemporalAnalysisAPIView(APIView):
             'total_records': total_records,
             'valid_dates': valid_count,
             'in_range_dates': in_range_count,
-            'error_count': error_count,
             'periods_found': len(period_counts)
         }
         
@@ -354,11 +344,11 @@ class TemporalAnalysisAPIView(APIView):
             }
         }
     
-    def _map_frontend_types_corrected(self, frontend_types):
-        """CORRECTION: Mapping frontend vers backend cohérent avec TimeChart"""
+    def _map_frontend_types(self, frontend_types):
+        """Mapper les types frontend vers backend"""
         type_mapping = {
-            # Types exacts du frontend TimeChart.js
             'pistes': 'pistes',
+            'sante': 'services_santes',
             'services_santes': 'services_santes',
             'ponts': 'ponts',
             'buses': 'buses',
@@ -366,17 +356,15 @@ class TemporalAnalysisAPIView(APIView):
             'ecoles': 'ecoles',
             'localites': 'localites',
             'marches': 'marches',
+            'administratifs': 'batiments_administratifs',
             'batiments_administratifs': 'batiments_administratifs',
+            'hydrauliques': 'infrastructures_hydrauliques',
             'infrastructures_hydrauliques': 'infrastructures_hydrauliques',
             'bacs': 'bacs',
-            'passages_submersibles': 'passages_submersibles',
-            'autres_infrastructures': 'autres_infrastructures',
-            # Aliases pour compatibilité
-            'sante': 'services_santes',
-            'administratifs': 'batiments_administratifs',
-            'hydrauliques': 'infrastructures_hydrauliques',
             'passages': 'passages_submersibles',
-            'autres': 'autres_infrastructures'
+            'passages_submersibles': 'passages_submersibles',
+            'autres': 'autres_infrastructures',
+            'autres_infrastructures': 'autres_infrastructures'
         }
         
         mapped_types = []
@@ -472,7 +460,7 @@ class TemporalAnalysisAPIView(APIView):
         results = []
         for item in temporal_data:
             if item['period_truncated']:
-                period_str = self._format_period_corrected(item['period_truncated'], period_type)
+                period_str = self._format_period(item['period_truncated'], period_type)
                 count = item['count']
                 
                 results.append({
@@ -495,8 +483,8 @@ class TemporalAnalysisAPIView(APIView):
         
         return results, debug_info
     
-    def _parse_varchar_date_enhanced(self, date_str):
-        """CORRECTION: Parser plus robuste pour les dates VARCHAR"""
+    def _parse_varchar_date_robust(self, date_str):
+        """Parser robuste spécialement conçu pour le format YYYY/MM/DD HH:MM:SS.mmm"""
         if not date_str or date_str.strip() == '':
             return None
         
@@ -504,44 +492,35 @@ class TemporalAnalysisAPIView(APIView):
             date_str_clean = str(date_str).strip()
             
             # Format principal: YYYY/MM/DD HH:MM:SS.mmm
-            if '/' in date_str_clean:
-                # Extraire seulement la partie date (avant l'espace)
-                date_part = date_str_clean.split(' ')[0] if ' ' in date_str_clean else date_str_clean
+            # Exemple: "2025/02/28 21:49:55.000"
+            if '/' in date_str_clean and ' ' in date_str_clean:
+                date_part = date_str_clean.split(' ')[0]  # Prendre seulement la partie date
                 
                 parts = date_part.split('/')
                 if len(parts) == 3:
-                    try:
-                        year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
-                        
-                        # Validation stricte des valeurs
-                        if self._is_valid_date_enhanced(year, month, day):
-                            return date(year, month, day)
-                    except (ValueError, IndexError):
-                        pass
+                    year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
+                    
+                    # Validation stricte
+                    if self._is_valid_date(year, month, day):
+                        return date(year, month, day)
             
-            # Format alternatif: YYYY-MM-DD
-            elif '-' in date_str_clean:
-                date_part = date_str_clean.split(' ')[0] if ' ' in date_str_clean else date_str_clean
-                
-                parts = date_part.split('-')
+            # Format alternatif: YYYY/MM/DD sans heure
+            elif '/' in date_str_clean:
+                parts = date_str_clean.split('/')
                 if len(parts) == 3:
-                    try:
-                        year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
-                        
-                        if self._is_valid_date_enhanced(year, month, day):
-                            return date(year, month, day)
-                    except (ValueError, IndexError):
-                        pass
+                    year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
+                    
+                    if self._is_valid_date(year, month, day):
+                        return date(year, month, day)
             
-        except Exception as e:
+        except (ValueError, IndexError, AttributeError) as e:
             pass
         
         return None
     
-    def _is_valid_date_enhanced(self, year, month, day):
-        """CORRECTION: Validation de date plus stricte"""
+    def _is_valid_date(self, year, month, day):
+        """Vérifier si une date est valide et cohérente"""
         try:
-            # Vérifier les plages logiques
             if not (2020 <= year <= 2030):  # Plage réaliste pour le projet
                 return False
             if not (1 <= month <= 12):
@@ -568,13 +547,12 @@ class TemporalAnalysisAPIView(APIView):
         else:
             return parsed_date
     
-    def _format_period_corrected(self, date_obj, period_type):
-        """CORRECTION: Formatage cohérent pour tri chronologique"""
+    def _format_period(self, date_obj, period_type):
+        """Formater la période selon le type - CORRIGÉ pour tri chronologique"""
         if period_type == 'day':
             return date_obj.strftime('%Y-%m-%d')  # Format ISO pour tri correct
         elif period_type == 'week':
-            # Format semaine avec année pour tri correct
-            return f"{date_obj.strftime('%Y')}-S{date_obj.strftime('%U')}"
+            return f"Sem {date_obj.strftime('%U/%Y')}"
         elif period_type == 'month':
             return date_obj.strftime('%Y-%m')  # Format YYYY-MM pour tri correct
         elif period_type == 'year':

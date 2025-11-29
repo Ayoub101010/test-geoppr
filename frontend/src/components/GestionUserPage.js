@@ -95,18 +95,39 @@ const GestionUserPage = () => {
 
     setLoading(true);
     try {
-      const response = await userManagementService.updateUser(selectedUser.id, selectedUser);
+      // ✅ CORRECTION: Convertir communes_rurales_id en entier si présent
+      let communeId = null;
+      if (selectedUser.communes_rurales_id) {
+        if (typeof selectedUser.communes_rurales_id === 'number') {
+          communeId = selectedUser.communes_rurales_id;
+        } else if (selectedUser.communes_rurales_id !== "") {
+          communeId = parseInt(selectedUser.communes_rurales_id, 10);
+        }
+      }
+
+      const updateData = {
+        nom: selectedUser.nom,
+        prenom: selectedUser.prenom,
+        mail: selectedUser.mail,
+        role: selectedUser.role,
+        communes_rurales_id: communeId  // null ou entier valide
+      };
+
+      console.log("📤 Données envoyées au backend:", updateData);
+
+      const response = await userManagementService.updateUser(selectedUser.id, updateData);
       if (response.success) {
         alert('Utilisateur modifié avec succès !');
         setActionType("");
         setSelectedUser(null);
         loadUsers();
       } else {
+        console.error("❌ Erreur backend:", response.error);
         alert('Erreur: ' + (response.error || 'Impossible de modifier l\'utilisateur'));
       }
     } catch (error) {
+      console.error('❌ Erreur lors de la modification:', error);
       alert('Erreur lors de la modification');
-      console.error(error);
     }
     setLoading(false);
   };
@@ -227,7 +248,7 @@ const GestionUserPage = () => {
           <button className="btn green" onClick={() => setShowAddModal(true)}>
             ➕ Nouvel utilisateur
           </button>
-          <button className="btn blue">📊 Exporter</button>
+          
         </div>
       </div>
 
@@ -466,7 +487,7 @@ const GestionUserPage = () => {
                     className="btn"
                     onClick={() => setShowAddModal(false)}
                   >
-                    ❌ Annuler
+                     Annuler
                   </button>
                   <button 
                     type="button"
@@ -474,7 +495,7 @@ const GestionUserPage = () => {
                     onClick={handleAddUser}
                     disabled={loading}
                   >
-                    {loading ? 'Création...' : '💾 Créer l\'utilisateur'}
+                    {loading ? 'Création...' : ' Créer l\'utilisateur'}
                   </button>
                 </div>
               </form>

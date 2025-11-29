@@ -1,7 +1,37 @@
+/* @refresh reset */
+
 import React, { useEffect, useRef, useState } from "react";
-import Chart from "chart.js/auto";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 import "./BarChart.css";
 import api from "./api";
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { useAuth } from './AuthContext';
+
+// ✅ Enregistrer Chart.js SANS ChartDataLabels globalement
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+  // PAS de ChartDataLabels ici - il sera ajouté localement
+);
+
+// ✅ Désactiver animations en dev pour éviter conflits hot-reload
+if (process.env.NODE_ENV === 'development') {
+  ChartJS.defaults.animation = false;
+}
 
 const BarChart = () => {
   const chartRef = useRef(null);
@@ -11,15 +41,20 @@ const BarChart = () => {
   const containerRef = useRef(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
-  const [allStats, setAllStats] = useState({}); // Toutes les données (pour vue initiale)
+  const [allStats, setAllStats] = useState({});
   const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const [isExporting, setIsExporting] = useState(false);
   
-  //  FILTRES INTÉGRÉS INDÉPENDANTS - AVEC INTERFACE VISIBLE
   const [modalFilters, setModalFilters] = useState({
-    selectedTypes: new Set() // Types sélectionnés SEULEMENT dans cette modal
+    selectedTypes: new Set()
   });
 
-  //  MAPPING CORRECT backend vers frontend
+  const canExport = () => {
+    if (!user) return false;
+    return user.role === 'super_admin' || user.role === 'admin';
+  };
+
   const backendToFrontend = {
     'pistes': 'pistes',
     'chaussees': 'chaussees',
@@ -37,7 +72,6 @@ const BarChart = () => {
     'autres_infrastructures': 'autres'
   };
 
-  // Labels français pour les types individuels
   const typeLabels = {
     pistes: "Pistes",
     chaussees: "Chaussées", 
@@ -55,7 +89,6 @@ const BarChart = () => {
     autres: "Autres infrastructures"
   };
 
-  //  NORMALISER les données backend vers frontend
   const normalizeStats = (backendStats) => {
     const normalizedStats = {};
     
@@ -68,23 +101,20 @@ const BarChart = () => {
     return normalizedStats;
   };
 
-  //  CHARGER TOUTES LES DONNÉES UNE SEULE FOIS (optimisation performance)
   const loadAllData = async () => {
     setLoading(true);
     try {
       console.log("📊 [BarChart] Chargement TOUTES les données (vue initiale - INDÉPENDANT)");
       
-      //  AUCUN FILTRE - Récupérer TOUTES les données
       const result = await api.statistiques.getStatsByType({});
       
       if (result.success) {
         const backendStats = result.data;
         const normalizedStats = normalizeStats(backendStats);
         
-        console.log(" [BarChart] Toutes les stats normalisées:", normalizedStats);
+        console.log("✅ [BarChart] Toutes les stats normalisées:", normalizedStats);
         setAllStats(normalizedStats);
         
-        // Construire la vue initiale avec TOUTES les données
         buildChartData(normalizedStats);
       } else {
         console.error("❌ [BarChart] Erreur API:", result.error);
@@ -98,11 +128,9 @@ const BarChart = () => {
     }
   };
 
-  //  APPLIQUER LES FILTRES MODAUX INDÉPENDANTS (réutilise les données existantes)
   const applyModalFilters = () => {
     let filteredStats = { ...allStats };
 
-    // Appliquer les filtres de types sélectionnés dans la modal (INDÉPENDAMMENT)
     if (modalFilters.selectedTypes.size > 0) {
       const filtered = {};
       Array.from(modalFilters.selectedTypes).forEach(type => {
@@ -117,7 +145,6 @@ const BarChart = () => {
     buildChartData(filteredStats);
   };
 
-  //  GESTION DES FILTRES INDÉPENDANTS DANS LA MODAL
   const handleTypeToggle = (type) => {
     const newSelectedTypes = new Set(modalFilters.selectedTypes);
     
@@ -139,7 +166,84 @@ const BarChart = () => {
     });
   };
 
-  //  CONSTRUIRE LES DONNÉES DU GRAPHIQUE
+  const exportChart = async (format = 'png') => {
+    setIsExporting(true);
+    try {
+      const chartElement = isExpanded 
+        ? document.querySelector('.chart-expanded-content')
+        : containerRef.current;
+      
+      const exportButtons = document.querySelectorAll('.chart-expanded-header button');
+      exportButtons.forEach(btn => btn.style.visibility = 'hidden');
+      
+      const canvas = await html2canvas(chartElement, {
+        backgroundColor: '#ffffff',
+        scale: 3,
+        logging: false,
+        useCORS: true,
+        allowTaint: true
+      });
+      
+      exportButtons.forEach(btn => btn.style.visibility = 'visible');
+
+      if (format === 'png') {
+        const link = document.createElement('a');
+        link.download = `Collectes_Infrastructure_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL('image/png', 1.0);
+        link.click();
+      } else if (format === 'pdf') {
+        const imgData = canvas.toDataURL('image/png', 1.0);
+        
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const ratio = imgWidth / imgHeight;
+        
+        const orientation = ratio > 1 ? 'landscape' : 'portrait';
+        const pdf = new jsPDF(orientation, 'mm', 'a4');
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        pdf.setFontSize(16);
+        pdf.setFont(undefined, 'bold');
+        pdf.text('📊 Collectes par type d\'infrastructure', pdfWidth / 2, 15, { align: 'center' });
+        
+        pdf.setFontSize(10);
+        pdf.setFont(undefined, 'normal');
+        const dateStr = new Date().toLocaleDateString('fr-FR', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        pdf.text(`Généré le ${dateStr}`, pdfWidth / 2, 22, { align: 'center' });
+        
+        let finalWidth, finalHeight;
+        const margin = 10;
+        const topMargin = 30;
+        const availableHeight = pdfHeight - topMargin - margin;
+        
+        if (ratio > pdfWidth / availableHeight) {
+          finalWidth = pdfWidth - (2 * margin);
+          finalHeight = finalWidth / ratio;
+        } else {
+          finalHeight = availableHeight;
+          finalWidth = finalHeight * ratio;
+        }
+        
+        const x = (pdfWidth - finalWidth) / 2;
+        const y = topMargin;
+        
+        pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight, undefined, 'FAST');
+        pdf.save(`Collectes_Infrastructure_${new Date().toISOString().split('T')[0]}.pdf`);
+      }
+    } catch (error) {
+      console.error('Erreur export:', error);
+      alert('Erreur lors de l\'export. Veuillez réessayer.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const buildChartData = (stats) => {
     console.log("📊 [BarChart] Construction avec:", stats);
 
@@ -169,7 +273,6 @@ const BarChart = () => {
     console.log("🎨 [BarChart] Données construites:", { labels, values });
   };
 
-  //  GESTION DU CLIC SUR TOUT LE CONTENEUR (pas seulement les barres)
   const handleContainerClick = (e) => {
     if (!isExpanded) {
       console.log("🖱️ [BarChart] Clic sur conteneur - Ouverture modal");
@@ -177,7 +280,6 @@ const BarChart = () => {
     }
   };
 
-  // Options du graphique
   const getChartOptions = (expanded = false) => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -192,6 +294,19 @@ const BarChart = () => {
         titleFont: { size: expanded ? 16 : 14 },
         bodyFont: { size: expanded ? 14 : 12 },
       },
+      datalabels: {
+        anchor: 'end',
+        align: 'top',
+        offset: expanded ? 8 : 4,
+        color: '#374151',
+        font: {
+          size: expanded ? 14 : 12,
+          weight: 'bold'
+        },
+        formatter: (value) => value,
+        display: true,
+        clip: false
+      }
     },
     scales: {
       x: {
@@ -201,7 +316,6 @@ const BarChart = () => {
           font: { size: expanded ? 14 : 12 },
           callback: function(value, index) {
             const label = this.getLabelForValue(value);
-            // Tronquer les labels trop longs
             if (label && label.length > (expanded ? 20 : 15)) {
               return label.substring(0, expanded ? 20 : 15) + '...';
             }
@@ -225,92 +339,129 @@ const BarChart = () => {
         },
         ticks: {
           font: { size: expanded ? 14 : 12 },
-          precision: 0, // Forcer les entiers
+          precision: 0,
           callback: function (value) {
-            // Afficher seulement les entiers
             return Number.isInteger(value) ? value : "";
           },
         },
+        suggestedMax: function(context) {
+          const max = Math.max(...context.chart.data.datasets[0].data);
+          return max * 1.15;
+        }
       },
     },
-    //  PAS d'onClick dans les options - gestion via conteneur
     onHover: (event, elements) => {
       if (!expanded) {
-        const canvas = event.native.target;
-        canvas.style.cursor = 'pointer';
+        const canvas = event.native?.target;
+        if (canvas) canvas.style.cursor = 'pointer';
+      }
+    },
+    layout: {
+      padding: {
+        top: expanded ? 30 : 20
       }
     }
   });
 
-  // Créer/mettre à jour le graphique
+  // ✅ Fonction de rendu avec plugin LOCAL (n'affecte QUE BarChart)
   const renderChart = () => {
-    if (!isExpanded) {
-      // Canvas normal (vue initiale)
-      if (chartInstanceRef.current) {
-        chartInstanceRef.current.destroy();
+    setTimeout(() => {
+      if (!isExpanded) {
+        if (chartInstanceRef.current) {
+          try {
+            chartInstanceRef.current.destroy();
+          } catch (e) {
+            // Ignorer les erreurs de destruction
+          }
+          chartInstanceRef.current = null;
+        }
+
+        if (chartData.labels.length === 0 || !chartRef.current) return;
+
+        const ctx = chartRef.current.getContext("2d");
+        if (!ctx) return;
+        
+        try {
+          chartInstanceRef.current = new ChartJS(ctx, {
+            type: "bar",
+            data: JSON.parse(JSON.stringify(chartData)),
+            options: getChartOptions(false),
+            plugins: [ChartDataLabels]  // ✅ Plugin LOCAL - seulement pour BarChart
+          });
+        } catch (error) {
+          console.error("❌ Erreur création chart normal:", error);
+        }
+      } else {
+        if (modalChartInstanceRef.current) {
+          try {
+            modalChartInstanceRef.current.destroy();
+          } catch (e) {
+            // Ignorer les erreurs de destruction
+          }
+          modalChartInstanceRef.current = null;
+        }
+
+        if (chartData.labels.length === 0 || !modalChartRef.current) return;
+
+        const ctx = modalChartRef.current.getContext("2d");
+        if (!ctx) return;
+        
+        try {
+          modalChartInstanceRef.current = new ChartJS(ctx, {
+            type: "bar",
+            data: JSON.parse(JSON.stringify(chartData)),
+            options: getChartOptions(true),
+            plugins: [ChartDataLabels]  // ✅ Plugin LOCAL - seulement pour BarChart
+          });
+        } catch (error) {
+          console.error("❌ Erreur création chart modal:", error);
+        }
       }
-
-      if (chartData.labels.length === 0 || !chartRef.current) return;
-
-      const ctx = chartRef.current.getContext("2d");
-      chartInstanceRef.current = new Chart(ctx, {
-        type: "bar",
-        data: chartData,
-        options: getChartOptions(false),
-      });
-    } else {
-      // Canvas modal (vue expanded avec filtres)
-      if (modalChartInstanceRef.current) {
-        modalChartInstanceRef.current.destroy();
-      }
-
-      if (chartData.labels.length === 0 || !modalChartRef.current) return;
-
-      const ctx = modalChartRef.current.getContext("2d");
-      modalChartInstanceRef.current = new Chart(ctx, {
-        type: "bar",
-        data: chartData,
-        options: getChartOptions(true),
-      });
-    }
+    }, 0);
   };
 
-  // Gérer la fermeture de la modal
   const handleCloseExpanded = (e) => {
     if (e.target.classList.contains('chart-overlay')) {
       console.log("❌ [BarChart] Fermeture modal");
       setIsExpanded(false);
-      // Revenir à la vue complète (toutes les données - sans rechargement)
       buildChartData(allStats);
     }
   };
 
-  //  EFFECTS OPTIMISÉS
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    // Charger TOUTES les données UNE SEULE FOIS au démarrage
     loadAllData();
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    // Appliquer les filtres INDÉPENDANTS seulement si on est en mode expanded
     if (isExpanded && Object.keys(allStats).length > 0) {
       applyModalFilters();
     }
   }, [modalFilters, isExpanded]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     renderChart();
   }, [chartData, isExpanded]);
 
   useEffect(() => {
-    //  PLUS D'ÉCOUTE DES FILTRES DE GAUCHE - COMPLÈTEMENT INDÉPENDANT
-    // Cleanup seulement
     return () => {
       if (chartInstanceRef.current) {
-        chartInstanceRef.current.destroy();
+        try {
+          chartInstanceRef.current.destroy();
+        } catch (e) {
+          // Ignorer
+        }
+        chartInstanceRef.current = null;
       }
       if (modalChartInstanceRef.current) {
-        modalChartInstanceRef.current.destroy();
+        try {
+          modalChartInstanceRef.current.destroy();
+        } catch (e) {
+          // Ignorer
+        }
+        modalChartInstanceRef.current = null;
       }
     };
   }, []);
@@ -329,7 +480,6 @@ const BarChart = () => {
 
   return (
     <>
-      {/*  VUE INITIALE - TOUTES LES DONNÉES (ignore filtres de gauche) */}
       <div className="bar-chart-wrapper" ref={containerRef}>
         <h2 className="chart-title">📊 Collectes par type d'infrastructure</h2>
         
@@ -344,25 +494,98 @@ const BarChart = () => {
         )}
       </div>
 
-      {/*  MODAL AVEC FILTRES INTÉGRÉS INDÉPENDANTS (COMME LE DONUT) */}
       {isExpanded && (
         <div className="chart-overlay" onClick={handleCloseExpanded}>
           <div className="chart-expanded">
             <div className="chart-expanded-header">
               <h3>📊 Collectes par type - Analyse détaillée</h3>
-              <button 
-                className="chart-close-btn"
-                onClick={() => {
-                  console.log("❌ [BarChart] Bouton fermeture cliqué");
-                  setIsExpanded(false);
-                  buildChartData(allStats);
-                }}
-              >
-                ✕
-              </button>
+              
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {canExport() && (
+                  <>
+                    <button 
+                      onClick={() => exportChart('png')}
+                      disabled={isExporting}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 12px',
+                        border: 'none',
+                        borderRadius: '6px',
+                        background: 'rgba(255, 255, 255, 0.2)',
+                        color: 'white',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        cursor: isExporting ? 'not-allowed' : 'pointer',
+                        opacity: isExporting ? 0.6 : 1,
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => !isExporting && (e.target.style.background = 'rgba(255, 255, 255, 0.3)')}
+                      onMouseLeave={(e) => (e.target.style.background = 'rgba(255, 255, 255, 0.2)')}
+                    >
+                      {isExporting ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i>
+                          <span>Export...</span>
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-image"></i>
+                          <span>PNG</span>
+                        </>
+                      )}
+                    </button>
+                    
+                    <button 
+                      onClick={() => exportChart('pdf')}
+                      disabled={isExporting}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 12px',
+                        border: 'none',
+                        borderRadius: '6px',
+                        background: 'rgba(255, 255, 255, 0.2)',
+                        color: 'white',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        cursor: isExporting ? 'not-allowed' : 'pointer',
+                        opacity: isExporting ? 0.6 : 1,
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => !isExporting && (e.target.style.background = 'rgba(255, 255, 255, 0.3)')}
+                      onMouseLeave={(e) => (e.target.style.background = 'rgba(255, 255, 255, 0.2)')}
+                    >
+                      {isExporting ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i>
+                          <span>Export...</span>
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-file-pdf"></i>
+                          <span>PDF</span>
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+                
+                <button 
+                  className="chart-close-btn"
+                  onClick={() => {
+                    console.log("❌ [BarChart] Bouton fermeture cliqué");
+                    setIsExpanded(false);
+                    buildChartData(allStats);
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
             
-            {/*  PANNEAU DE FILTRES INTÉGRÉS INDÉPENDANTS (EXACTEMENT COMME LE DONUT) */}
             <div className="chart-filters-panel">
               <div className="filters-row">
                 <div className="filter-stats">
@@ -383,7 +606,6 @@ const BarChart = () => {
                 </button>
               </div>
               
-              {/*  FILTRES PAR TYPES - COMPLÈTEMENT INDÉPENDANTS DES FILTRES DE GAUCHE */}
               <div className="types-filter-group">
                 <label>Filtrer par types d'infrastructure:</label>
                 <div className="types-checkboxes">

@@ -1,9 +1,9 @@
 # api/geographic_api.py
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.contrib.gis.geos import Point
-from django.contrib.gis.measure import Distance
+from rest_framework.views import APIView # type: ignore
+from rest_framework.response import Response # type: ignore
+from rest_framework import status # type: ignore
+from django.contrib.gis.geos import Point # type: ignore
+from django.contrib.gis.measure import Distance  # type: ignore
 from .models import Region, Prefecture, CommuneRurale
 from .serializers import RegionSerializer, PrefectureSerializer, CommuneRuraleSerializer
 
@@ -174,4 +174,4 @@ class ZoomToLocationAPIView(APIView):
             centroid = geometry.centroid
             return [centroid.x, centroid.y]
         except:
-            return Nones
+            return Nones # type: ignore

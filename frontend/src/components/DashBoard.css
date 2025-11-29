@@ -1,4 +1,4 @@
-/* Dashboard.css - Styles complets */
+/* Dashboard.css - Styles complets avec scroll interne et headers sticky */
 
 .dashboard {
   padding: 2rem;
@@ -135,19 +135,25 @@
   opacity: 0.9;
 }
 
-/* Tableau */
+/* ==================== TABLEAU AVEC SCROLL INTERNE ==================== */
+
 .dashboard-table {
   background: white;
   border-radius: 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
   margin-bottom: 2rem;
+  max-width: 100%;
+  position: relative;
+  max-height: 600px; /* Hauteur fixe du tableau */
+  overflow: auto; /* Scroll horizontal ET vertical interne */
 }
 
 .dashboard-table table {
-  width: 100%;
+  width: auto;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .dashboard-table th {
@@ -157,6 +163,15 @@
   text-align: left;
   font-weight: 600;
   border-bottom: 2px solid #ddd;
+  position: sticky; /* Headers sticky */
+  top: 0; /* Restent en haut lors du scroll vertical */
+  z-index: 10;
+  white-space: nowrap;
+}
+
+/* En-têtes des colonnes infrastructures - centrées */
+.dashboard-table th:nth-child(n+6) {
+  text-align: center;
 }
 
 .dashboard-table td {
@@ -177,15 +192,141 @@
   background-color: #e9ecef;
 }
 
+/* ==================== LARGEURS FIXES POUR COLONNES ==================== */
+
+/* Code Piste - Limiter la largeur */
+.code-piste {
+  max-width: 250px;
+  min-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.75rem 1rem;
+}
+
+/* Colonne Date */
+.dashboard-table td:nth-child(2),
+.dashboard-table th:nth-child(2) {
+  min-width: 100px;
+  white-space: nowrap;
+}
+
+/* Colonne Utilisateur */
+.dashboard-table td:nth-child(3),
+.dashboard-table th:nth-child(3) {
+  min-width: 150px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Colonne Localité */
+.dashboard-table td:nth-child(4),
+.dashboard-table th:nth-child(4) {
+  min-width: 120px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Colonne Km */
+.kilometrage-cell {
+  font-weight: 500;
+  color: #495057;
+  white-space: nowrap;
+  min-width: 100px;
+  text-align: right;
+  padding-right: 1rem;
+}
+
+/* Colonnes Infrastructures - Petites et centrées */
+.infra-count {
+  text-align: center;
+  min-width: 60px;
+  max-width: 80px;
+  padding: 0.75rem 0.5rem;
+  font-weight: 500;
+}
+
+/* ==================== SCROLL BAR STYLING ==================== */
+
+/* Scrollbar verticale ET horizontale */
+.dashboard-table::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.dashboard-table::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.dashboard-table::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10px;
+}
+
+.dashboard-table::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+/* Coin entre les 2 scrollbars */
+.dashboard-table::-webkit-scrollbar-corner {
+  background: #f1f1f1;
+}
+
+/* Pour Firefox */
+.dashboard-table {
+  scrollbar-width: thin;
+  scrollbar-color: #667eea #f1f1f1;
+}
+
+/* ==================== INDICATEURS DE SCROLL ==================== */
+
+/* Ombre à droite pour indiquer scroll horizontal */
+.dashboard-table::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30px;
+  background: linear-gradient(to left, rgba(255,255,255,0.9), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 5;
+}
+
+.dashboard-table.has-horizontal-scroll::after {
+  opacity: 1;
+}
+
+/* Ombre en bas pour indiquer scroll vertical */
+.dashboard-table::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(to top, rgba(255,255,255,0.9), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 5;
+}
+
+.dashboard-table.has-vertical-scroll::before {
+  opacity: 1;
+}
+
+/* ==================== STYLES SPÉCIAUX ==================== */
+
 /* Styles spéciaux pour les cellules */
 .non-assigne {
   color: #6c757d;
   font-style: italic;
-}
-
-.kilometrage-cell {
-  font-weight: 500;
-  color: #495057;
 }
 
 /* Badges de type */
@@ -198,10 +339,8 @@
 }
 
 .type-piste {
-  background-color: #6f42c1; /* Violet pour piste */
+  background-color: #6f42c1;
 }
-
-/* Suppression styles état non utilisés */
 
 /* Boutons d'actions */
 .actions-cell {
@@ -246,7 +385,8 @@
   color: #6c757d;
 }
 
-/* Loading et Error */
+/* ==================== LOADING ET ERROR ==================== */
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
@@ -262,10 +402,29 @@
   text-align: center;
 }
 
-/* Responsive Design */
+/* ==================== RESPONSIVE DESIGN ==================== */
+
+@media (max-width: 1400px) {
+  .code-piste {
+    max-width: 200px;
+    min-width: 150px;
+  }
+  
+  .dashboard-table {
+    font-size: 0.85rem;
+    max-height: 500px; /* Hauteur réduite sur écrans moyens */
+  }
+  
+  .infra-count {
+    min-width: 50px;
+    padding: 0.5rem 0.25rem;
+  }
+}
+
 @media (max-width: 1200px) {
   .dashboard-table {
     font-size: 0.8rem;
+    max-height: 450px; /* Hauteur encore plus réduite */
   }
   
   .dashboard-table th,
@@ -301,11 +460,16 @@
   }
   
   .dashboard-table {
-    overflow-x: auto;
+    max-height: 400px; /* Hauteur mobile */
   }
   
-  .dashboard-table table {
-    min-width: 800px;
+  .code-piste {
+    max-width: 150px;
+    min-width: 120px;
+  }
+  
+  .infra-count {
+    min-width: 45px;
   }
 }
 
@@ -316,5 +480,9 @@
   
   .stats-card h3 {
     font-size: 1.5rem;
+  }
+  
+  .dashboard-table {
+    max-height: 350px; /* Hauteur très petits écrans */
   }
 }

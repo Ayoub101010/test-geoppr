@@ -1,39 +1,32 @@
-from django.shortcuts import render
-from django.db import transaction 
-from .auth_utils import PasswordHasher, JWTManager
 
-# Create your views here.
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework import generics
 
-from django.db.models import Count, Q
-from django.contrib.gis.db.models.functions import Length, Transform
+from django.shortcuts import render # type: ignore
+from rest_framework.views import APIView # type: ignore
+from rest_framework.response import Response # type: ignore
+from rest_framework import status, generics # type: ignore
+from django.contrib.gis.db.models.functions import Transform,Length # type: ignore
+from django.db.models import Count # type: ignore
+from django.db.models import Q # type: ignore
+from rest_framework.pagination import PageNumberPagination # type: ignore
 
-from .models import Login
-from .serializers import LoginSerializer, PisteSerializer
-from .models import Piste
-from .models import (
-    ServicesSantes, AutresInfrastructures, Bacs, BatimentsAdministratifs,
-    Buses, Dalots, Ecoles, InfrastructuresHydrauliques, Localites,
-    Marches, PassagesSubmersibles, Ponts, CommuneRurale, Prefecture, Region
-)
-from .serializers import (
-    ServicesSantesSerializer, AutresInfrastructuresSerializer, BacsSerializer,
-    BatimentsAdministratifsSerializer, BusesSerializer, DalotsSerializer,
-    EcolesSerializer, InfrastructuresHydrauliquesSerializer, LocalitesSerializer,
-    MarchesSerializer, PassagesSubmersiblesSerializer, PontsSerializer, CommuneRuraleSerializer,
-      PrefectureSerializer, RegionSerializer,UserCreateSerializer, UserUpdateSerializer
-)
+from rest_framework import status # type: ignore
+from rest_framework_simplejwt.tokens import RefreshToken  # type: ignore
+
+from .models import *
+from .serializers import *
+
+
+# ==================== GEOGRAPHIE ====================
 
 class RegionsListCreateAPIView(generics.ListCreateAPIView):
     queryset = Region.objects.all()
     serializer_class = RegionSerializer
 
+
 class PrefecturesListCreateAPIView(generics.ListCreateAPIView):
     queryset = Prefecture.objects.all()
     serializer_class = PrefectureSerializer
+
 
 class CommunesRuralesListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = CommuneRuraleSerializer
@@ -43,285 +36,108 @@ class CommunesRuralesListCreateAPIView(generics.ListCreateAPIView):
             'prefectures_id',
             'prefectures_id__regions_id'
         )
-        
-        # Ajouter le filtre de recherche
         search = self.request.GET.get('q', '')
         if search:
             queryset = queryset.filter(nom__icontains=search)
-        
         return queryset.order_by('nom')
 
-class ServicesSantesListCreateAPIView(generics.ListCreateAPIView):
-    queryset = ServicesSantes.objects.all()
-    serializer_class = ServicesSantesSerializer
 
-class AutresInfrastructuresListCreateAPIView(generics.ListCreateAPIView):
-    queryset = AutresInfrastructures.objects.all()
-    serializer_class = AutresInfrastructuresSerializer
-
-class BacsListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Bacs.objects.all()
-    serializer_class = BacsSerializer
-
-class BatimentsAdministratifsListCreateAPIView(generics.ListCreateAPIView):
-    queryset = BatimentsAdministratifs.objects.all()
-    serializer_class = BatimentsAdministratifsSerializer
-
-class BusesListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Buses.objects.all()
-    serializer_class = BusesSerializer
-
-class DalotsListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Dalots.objects.all()
-    serializer_class = DalotsSerializer
-
-class EcolesListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Ecoles.objects.all()
-    serializer_class = EcolesSerializer
-
-class InfrastructuresHydrauliquesListCreateAPIView(generics.ListCreateAPIView):
-    queryset = InfrastructuresHydrauliques.objects.all()
-    serializer_class = InfrastructuresHydrauliquesSerializer
-
-class LocalitesListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Localites.objects.all()
-    serializer_class = LocalitesSerializer
-
-class MarchesListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Marches.objects.all()
-    serializer_class = MarchesSerializer
-
-class PassagesSubmersiblesListCreateAPIView(generics.ListCreateAPIView):
-    queryset = PassagesSubmersibles.objects.all()
-    serializer_class = PassagesSubmersiblesSerializer
-
-class PontsListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Ponts.objects.all()
-    serializer_class = PontsSerializer
-
-
-
+# ==================== UTILISATEURS ====================
 
 class LoginAPIView(APIView):
-    """
-    API d'authentification sécurisée avec JWT
-    - POST: Connexion avec email/password
-    - GET: Liste des utilisateurs
-    """
+    """API de connexion avec JWT - Format compatible frontend"""
     
     def get(self, request):
-        """Récupérer tous les utilisateurs"""
-        users = Login.objects.select_related(
-            'communes_rurales_id',
-            'communes_rurales_id__prefectures_id',
-            'communes_rurales_id__prefectures_id__regions_id'
-        ).all()
+        """Recuperer tous les utilisateurs"""
+        users = Login.objects.all()
         serializer = LoginSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     def post(self, request):
-        """Authentification sécurisée avec JWT - RÉSERVÉE AUX ADMINS"""
-        mail = request.data.get('mail', '').strip()
-        mdp = request.data.get('mdp', '')
-        
-        # Validation des entrées
+        """Authentification avec generation de tokens JWT"""
+        mail = request.data.get('mail')
+        mdp = request.data.get('mdp')
+
         if not mail or not mdp:
             return Response({
-                "success": False,
-                "error": "Email et mot de passe requis"
+                "error": "Mail et mot de passe requis"
             }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Recherche utilisateur
+
         try:
-            user = Login.objects.select_related(
-                'communes_rurales_id',
-                'communes_rurales_id__prefectures_id',
-                'communes_rurales_id__prefectures_id__regions_id'
-            ).get(mail=mail)
+            user = Login.objects.get(mail=mail)
+           
         except Login.DoesNotExist:
             return Response({
-                "success": False,
-                "error": "Email ou mot de passe incorrect"
-            }, status=status.HTTP_401_UNAUTHORIZED)
-        
-        # Vérification du mot de passe
-        if not PasswordHasher.verify_password(mdp, user.mdp):
+                "error": "Utilisateur non trouve"
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Verification du mot de passe (simple pour l'instant)
+        if user.mdp != mdp:
             return Response({
-                "success": False,
-                "error": "Email ou mot de passe incorrect"
+                "error": "Mot de passe incorrect"
             }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Generation des tokens JWT
+        refresh = RefreshToken()
+        refresh['user_id'] = user.id
+        refresh['email'] = user.mail
+        refresh['role'] = user.role
         
-        # 🔒 BLOQUER LES UTILISATEURS NORMAUX
-        if user.role not in ['admin', 'super_admin']:
-            return Response({
-                "success": False,
-                "error": "Connexion réservée aux administrateurs uniquement"
-            }, status=status.HTTP_403_FORBIDDEN)
+        # Preparation des donnees utilisateur
+        user_data = {
+            'id': user.id,
+            'nom': user.nom,
+            'prenom': user.prenom,
+            'mail': user.mail,
+            'role': user.role,
+        }
         
-        # Migration progressive des anciens mots de passe
-        if PasswordHasher.needs_rehash(user.mdp):
-            with transaction.atomic():
-                user.mdp = PasswordHasher.hash_password(mdp)
-                user.save(update_fields=['mdp'])
-                print(f"✅ Mot de passe migré pour {user.mail}")
+        # Ajout des infos geographiques si presentes
+        if user.communes_rurales_id:
+            commune = user.communes_rurales_id
+            user_data['commune'] = {
+                'id': commune.id,
+                'nom': commune.nom
+            }
+            
+            if commune.prefectures_id:
+                prefecture = commune.prefectures_id
+                user_data['prefecture'] = {
+                    'id': prefecture.id,
+                    'nom': prefecture.nom
+                }
+                
+                if prefecture.regions_id:
+                    region = prefecture.regions_id
+                    user_data['region'] = {
+                        'id': region.id,
+                        'nom': region.nom
+                    }
         
-        # Génération des tokens JWT
-        tokens = JWTManager.generate_tokens(user)
-        user_data = JWTManager.format_user_data(user)
-        
+        # IMPORTANT: Format attendu par le frontend
+        # Les tokens sont directement dans la reponse, PAS dans un sous-objet
         return Response({
-            "success": True,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
             "user": user_data,
-            "tokens": tokens,
-            "message": "Connexion réussie"
+            "expires_in": 3600
         }, status=status.HTTP_200_OK)
 
-class TokenRefreshAPIView(APIView):
-    """Rafraîchir l'access token avec un refresh token"""
-    
-    def post(self, request):
-        from rest_framework_simplejwt.tokens import RefreshToken
-        from rest_framework_simplejwt.exceptions import TokenError
-        
-        refresh_token = request.data.get('refresh')
-        
-        if not refresh_token:
-            return Response({
-                "success": False,
-                "error": "Refresh token requis"
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        try:
-            refresh = RefreshToken(refresh_token)
-            return Response({
-                "success": True,
-                "access": str(refresh.access_token),
-                "expires_in": 3600
-            }, status=status.HTTP_200_OK)
-        except TokenError:
-            return Response({
-                "success": False,
-                "error": "Token invalide ou expiré"
-            }, status=status.HTTP_401_UNAUTHORIZED)
-
-class PisteListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Piste.objects.all()
-    serializer_class = PisteSerializer
-
-    def perform_create(self, serializer):
-        serializer.save()
-
-    def get(self, request):
-        try:
-            # Utilisation ORM avec annotations
-            pistes = Piste.objects.select_related(
-                'login_id',  # Relation vers utilisateur
-                'communes_rurales_id'  # Relation vers commune
-            ).annotate(
-                # Calcul kilométrage avec ORM PostGIS
-                kilometrage=Length(Transform('geom', 3857)) / 1000,
-                
-                # Comptage infrastructures par type avec ORM
-                nb_buses=Count('buses', filter=Q(buses__code_piste__isnull=False)),
-                nb_ponts=Count('ponts', filter=Q(ponts__code_piste__isnull=False)),
-                nb_dalots=Count('dalots', filter=Q(dalots__code_piste__isnull=False)),
-                nb_bacs=Count('bacs', filter=Q(bacs__code_piste__isnull=False)),
-                nb_ecoles=Count('ecoles', filter=Q(ecoles__code_piste__isnull=False)),
-                nb_marches=Count('marches', filter=Q(marches__code_piste__isnull=False)),
-                nb_services_santes=Count('servicessantes', filter=Q(servicessantes__code_piste__isnull=False)),
-                nb_autres_infrastructures=Count('autresinfrastructures', filter=Q(autresinfrastructures__code_piste__isnull=False)),
-                nb_batiments_administratifs=Count('batimentsadministratifs', filter=Q(batimentsadministratifs__code_piste__isnull=False)),
-                nb_infrastructures_hydrauliques=Count('infrastructureshydrauliques', filter=Q(infrastructureshydrauliques__code_piste__isnull=False)),
-                nb_localites=Count('localites', filter=Q(localites__code_piste__isnull=False)),
-                nb_passages_submersibles=Count('passagessubmersibles', filter=Q(passagessubmersibles__code_piste__isnull=False))
-            ).order_by('-created_at')
-            
-            # Sérialisation des données
-            pistes_data = []
-            for piste in pistes:
-                # Gestion des NULL avec ORM
-                utilisateur_nom = piste.login_id.nom_complet if piste.login_id else "Non assigné"
-                utilisateur_email = piste.login_id.email if piste.login_id else ""
-                commune_nom = piste.communes_rurales_id.nom if piste.communes_rurales_id else "Non assignée"
-                
-                # Calcul total infrastructures
-                total_infrastructures = (
-                    piste.nb_buses + piste.nb_ponts + piste.nb_dalots +
-                    piste.nb_bacs + piste.nb_ecoles + piste.nb_marches +
-                    piste.nb_services_santes + piste.nb_autres_infrastructures +
-                    piste.nb_batiments_administratifs + piste.nb_infrastructures_hydrauliques +
-                    piste.nb_localites + piste.nb_passages_submersibles
-                )
-                
-                piste_data = {
-                    'id': piste.id,
-                    'code_piste': piste.code_piste,
-                    'nom_complet': f"{piste.nom_origine_piste} → {piste.nom_destination_piste}",
-                    'nom_origine': piste.nom_origine_piste,
-                    'nom_destination': piste.nom_destination_piste,
-                    'utilisateur': utilisateur_nom,
-                    'utilisateur_email': utilisateur_email,
-                    'commune': commune_nom,
-                    'kilometrage': round(float(piste.kilometrage or 0), 2),
-                    'total_infrastructures': total_infrastructures,
-                    'infrastructures_par_type': {
-                        'Buses': piste.nb_buses,
-                        'Ponts': piste.nb_ponts,
-                        'Dalots': piste.nb_dalots,
-                        'Bacs': piste.nb_bacs,
-                        'Écoles': piste.nb_ecoles,
-                        'Marchés': piste.nb_marches,
-                        'Services Santé': piste.nb_services_santes,
-                        'Autres Infrastructures': piste.nb_autres_infrastructures,
-                        'Bâtiments Administratifs': piste.nb_batiments_administratifs,
-                        'Infrastructures Hydrauliques': piste.nb_infrastructures_hydrauliques,
-                        'Localités': piste.nb_localites,
-                        'Passages Submersibles': piste.nb_passages_submersibles
-                    },
-                    'created_at': piste.created_at,
-                    'updated_at': piste.updated_at
-                }
-                
-                pistes_data.append(piste_data)
-            
-            return Response({
-                'success': True,
-                'data': {
-                    'pistes': pistes_data,
-                    'total_pistes': len(pistes_data),
-                    'resume': {
-                        'pistes_avec_utilisateur': len([p for p in pistes_data if p['utilisateur'] != 'Non assigné']),
-                        'pistes_sans_utilisateur': len([p for p in pistes_data if p['utilisateur'] == 'Non assigné']),
-                        'kilometrage_total': sum([p['kilometrage'] for p in pistes_data]),
-                        'total_infrastructures': sum([p['total_infrastructures'] for p in pistes_data])
-                    }
-                }
-            })
-            
-        except Exception as e:
-            return Response({
-                'success': False,
-                'error': f'Erreur lors de la récupération des données: {str(e)}'
-            })
-
 class UserManagementAPIView(APIView):
-    """API dédiée à la gestion des utilisateurs par le super_admin"""
+    """API dediee a la gestion des utilisateurs par le super_admin"""
     
     def post(self, request):
-        """Créer un nouvel utilisateur avec commune"""
-        print(f"🔍 Données reçues pour création utilisateur:", request.data)  # Ajout debug
-        
+        """Creer un nouvel utilisateur"""
         serializer = UserCreateSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
             response_serializer = LoginSerializer(user)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         else:
-            print(f"❌ Erreurs de validation:", serializer.errors)  # Ajout debug
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def get(self, request, user_id=None):
-        """Lister tous les utilisateurs ou récupérer un utilisateur spécifique"""
+        """Lister tous les utilisateurs ou recuperer un utilisateur specifique"""
         if user_id:
             try:
                 user = Login.objects.select_related(
@@ -332,7 +148,7 @@ class UserManagementAPIView(APIView):
                 serializer = LoginSerializer(user)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except Login.DoesNotExist:
-                return Response({"error": "Utilisateur non trouvé"}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": "Utilisateur non trouve"}, status=status.HTTP_404_NOT_FOUND)
         else:
             queryset = Login.objects.select_related(
                 'communes_rurales_id',
@@ -343,7 +159,7 @@ class UserManagementAPIView(APIView):
             role = request.GET.get('role')
             region_id = request.GET.get('region_id')
             prefecture_id = request.GET.get('prefecture_id')
-            commune_id = request.GET.get('commune_id')
+            commune_id = request.GET.get('commune_id') or request.GET.get('communes_rurales_id')
             
             if role:
                 queryset = queryset.filter(role=role)
@@ -362,27 +178,21 @@ class UserManagementAPIView(APIView):
     
     def put(self, request, user_id=None):
         """Modifier un utilisateur existant"""
-        print(f"🔍 PUT /api/users/{user_id}/ - Données reçues:", request.data)
-        
         if not user_id:
             return Response({"error": "ID utilisateur requis"}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             user = Login.objects.get(id=user_id)
-            print(f"✅ Utilisateur trouvé: {user.nom} {user.prenom}")
         except Login.DoesNotExist:
-            print(f"❌ Utilisateur {user_id} non trouvé")
-            return Response({"error": "Utilisateur non trouvé"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Utilisateur non trouve"}, status=status.HTTP_404_NOT_FOUND)
         
         serializer = UserUpdateSerializer(user, data=request.data, partial=True)
         if serializer.is_valid():
-            print("✅ Serializer valide")
             serializer.save()
             user.refresh_from_db()
             response_serializer = LoginSerializer(user)
             return Response(response_serializer.data, status=status.HTTP_200_OK)
         else:
-            print(f"❌ Erreurs de validation: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def delete(self, request, user_id=None):
@@ -395,135 +205,246 @@ class UserManagementAPIView(APIView):
             user_info = f"{user.nom} {user.prenom}"
             user.delete()
             return Response({
-                "message": f"Utilisateur {user_info} supprimé avec succès"
+                "message": f"Utilisateur {user_info} supprime avec succes"
             }, status=status.HTTP_200_OK)
         except Login.DoesNotExist:
-            return Response({"error": "Utilisateur non trouvé"}, status=status.HTTP_404_NOT_FOUND)
-        
-class RegionsListAPIView(APIView):
-    """
-    API pour récupérer toutes les régions
-    Modifiée pour le filtrage géographique
-    """
-    def get(self, request):
-        try:
-            from .models import Regions
-            
-            regions = Regions.objects.all().order_by('nom')
-            
-            data = []
-            for region in regions:
-                region_data = {
-                    'id': region.id,
-                    'nom': region.nom,
-                }
-                # Ajouter la géométrie si elle existe
-                if region.geom:
-                    region_data['geom'] = json.loads(region.geom.geojson)
-                    
-                data.append(region_data)
-            
-            return Response(data, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {'error': str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": "Utilisateur non trouve"}, status=status.HTTP_404_NOT_FOUND)
 
 
-class PrefecturesFilteredAPIView(APIView):
+# ==================== PISTES ====================
+
+class PisteListCreateAPIView(generics.ListCreateAPIView):
+    """Vue unifiee pour les pistes
+    Accepte commune_id OU communes_rurales_id pour filtrage"""
+    
+    def get_queryset(self):
+        qs = Piste.objects.all()
+        commune_id = self.request.query_params.get('commune_id') or \
+                     self.request.query_params.get('communes_rurales_id')
+        if commune_id:
+            qs = qs.filter(communes_rurales_id=commune_id)
+        return qs.annotate(geom_4326=Transform('geom', 4326))
+    
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return PisteReadSerializer
+        return PisteWriteSerializer
+    
+    def perform_create(self, serializer):
+        serializer.save()
+    
+class PisteWebListAPIView(generics.ListAPIView):
     """
-    API pour récupérer les préfectures avec filtrage par région
+    Endpoint pour dashboard - SANS PAGINATION (comme ancien backend)
+    1 seule requête SQL optimisée avec Count()
     """
-    def get(self, request):
-        try:
-            from .models import Prefectures
+    
+    serializer_class = PisteDashboardSerializer
+    pagination_class = None  
+    
+    def get_queryset(self):
+        """
+        Même logique que l'ancien backend web!
+        Utilise Count() avec relations code_piste
+        """
+        return Piste.objects.select_related(
+            'login_id',
+            'communes_rurales_id'
+        ).annotate(
+            # Calcul kilométrage (transformé en WGS84 puis en km)
+            kilometrage=Length(Transform('geom', 3857)) / 1000,
             
-            region_id = request.GET.get('region_id')
-            
-            if region_id:
-                prefectures = Prefectures.objects.filter(
-                    regions_id=region_id
-                ).select_related('regions_id').order_by('nom')
-            else:
-                prefectures = Prefectures.objects.all().select_related(
-                    'regions_id'
-                ).order_by('nom')
-            
-            data = []
-            for prefecture in prefectures:
-                prefecture_data = {
-                    'id': prefecture.id,
-                    'nom': prefecture.nom,
-                    'regions_id': prefecture.regions_id.id if prefecture.regions_id else None,
-                    'region_nom': prefecture.regions_id.nom if prefecture.regions_id else None,
-                }
-                # Ajouter la géométrie si elle existe
-                if prefecture.geom:
-                    prefecture_data['geom'] = json.loads(prefecture.geom.geojson)
-                    
-                data.append(prefecture_data)
-            
-            return Response(data, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {'error': str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            # ✅ COMPTAGE via code_piste (comme ancien backend)
+            nb_buses=Count('buses', filter=Q(buses__code_piste__isnull=False)),
+            nb_ponts=Count('ponts', filter=Q(ponts__code_piste__isnull=False)),
+            nb_dalots=Count('dalots', filter=Q(dalots__code_piste__isnull=False)),
+            nb_bacs=Count('bacs', filter=Q(bacs__code_piste__isnull=False)),
+            nb_ecoles=Count('ecoles', filter=Q(ecoles__code_piste__isnull=False)),
+            nb_marches=Count('marches', filter=Q(marches__code_piste__isnull=False)),
+            nb_services_santes=Count('servicessantes', filter=Q(servicessantes__code_piste__isnull=False)),
+            nb_autres_infrastructures=Count('autresinfrastructures', filter=Q(autresinfrastructures__code_piste__isnull=False)),
+            nb_batiments_administratifs=Count('batimentsadministratifs', filter=Q(batimentsadministratifs__code_piste__isnull=False)),
+            nb_infrastructures_hydrauliques=Count('infrastructureshydrauliques', filter=Q(infrastructureshydrauliques__code_piste__isnull=False)),
+            nb_localites=Count('localites', filter=Q(localites__code_piste__isnull=False)),
+            nb_passages_submersibles=Count('passagessubmersibles', filter=Q(passagessubmersibles__code_piste__isnull=False))
+        ).order_by('-created_at')
+# ==================== CHAUSSEES ====================
+
+class ChausseesListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = ChausseesSerializer
+
+    def get_queryset(self):
+        qs = Chaussees.objects.all()
+        # Support des deux conventions
+        commune_id = self.request.query_params.get('commune_id') or \
+                     self.request.query_params.get('communes_rurales_id')
+        if commune_id:
+            qs = qs.filter(communes_rurales_id=commune_id)
+        code_piste = self.request.query_params.get('code_piste')
+        if code_piste:
+            qs = qs.filter(code_piste_id=code_piste)
+        return qs
 
 
-class CommunesFilteredAPIView(APIView):
-    """
-    API pour récupérer les communes avec filtrage par préfecture ou région
-    """
-    def get(self, request):
-        try:
-            from .models import CommunesRurales
-            
-            prefecture_id = request.GET.get('prefecture_id')
-            region_id = request.GET.get('region_id')
-            
-            queryset = CommunesRurales.objects.all()
-            
-            if prefecture_id:
-                queryset = queryset.filter(prefectures_id=prefecture_id)
-            elif region_id:
-                queryset = queryset.filter(
-                    prefectures_id__regions_id=region_id
-                )
-            
-            communes = queryset.select_related(
-                'prefectures_id', 
-                'prefectures_id__regions_id'
-            ).order_by('nom')
-            
-            data = []
-            for commune in communes:
-                commune_data = {
-                    'id': commune.id,
-                    'nom': commune.nom,
-                    'prefectures_id': commune.prefectures_id.id if commune.prefectures_id else None,
-                    'prefecture': commune.prefectures_id.nom if commune.prefectures_id else None,
-                    'region': commune.prefectures_id.regions_id.nom if commune.prefectures_id and commune.prefectures_id.regions_id else None,
-                }
-                
-                # Ajouter la géométrie et les bounds
-                if commune.geom:
-                    commune_data['geom'] = json.loads(commune.geom.geojson)
-                    # Calculer les bounds (envelope)
-                    envelope = commune.geom.envelope
-                    if envelope:
-                        commune_data['bounds'] = json.loads(envelope.geojson)
-                    
-                data.append(commune_data)
-            
-            return Response(data, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {'error': str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+# ==================== POINTS ====================
 
+class PointsCoupuresListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = PointsCoupuresSerializer
+
+    def get_queryset(self):
+        qs = PointsCoupures.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            qs = qs.filter(commune_id=commune_id)
+        chaussee_id = self.request.query_params.get('chaussee_id')
+        if chaussee_id:
+            qs = qs.filter(chaussee_id=chaussee_id)
+        return qs
+
+
+class PointsCritiquesListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = PointsCritiquesSerializer
+
+    def get_queryset(self):
+        qs = PointsCritiques.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            qs = qs.filter(commune_id=commune_id)
+        chaussee_id = self.request.query_params.get('chaussee_id')
+        if chaussee_id:
+            qs = qs.filter(chaussee_id=chaussee_id)
+        return qs
+
+
+# ==================== INFRASTRUCTURES ====================
+
+class ServicesSantesListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = ServicesSantesSerializer
+    
+    def get_queryset(self):
+        queryset = ServicesSantes.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            queryset = queryset.filter(commune_id=commune_id)
+        return queryset
+
+
+class AutresInfrastructuresListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = AutresInfrastructuresSerializer
+    
+    def get_queryset(self):
+        queryset = AutresInfrastructures.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            queryset = queryset.filter(commune_id=commune_id)
+        return queryset
+
+
+class BacsListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = BacsSerializer
+    
+    def get_queryset(self):
+        queryset = Bacs.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            queryset = queryset.filter(commune_id=commune_id)
+        return queryset
+
+
+class BatimentsAdministratifsListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = BatimentsAdministratifsSerializer
+    
+    def get_queryset(self):
+        queryset = BatimentsAdministratifs.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            queryset = queryset.filter(commune_id=commune_id)
+        return queryset
+
+
+class BusesListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = BusesSerializer
+    
+    def get_queryset(self):
+        queryset = Buses.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            queryset = queryset.filter(commune_id=commune_id)
+        return queryset
+
+
+class DalotsListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = DalotsSerializer
+    
+    def get_queryset(self):
+        queryset = Dalots.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            queryset = queryset.filter(commune_id=commune_id)
+        return queryset
+
+
+class EcolesListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = EcolesSerializer
+    
+    def get_queryset(self):
+        queryset = Ecoles.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            queryset = queryset.filter(commune_id=commune_id)
+        return queryset
+
+
+class InfrastructuresHydrauliquesListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = InfrastructuresHydrauliquesSerializer
+    
+    def get_queryset(self):
+        queryset = InfrastructuresHydrauliques.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            queryset = queryset.filter(commune_id=commune_id)
+        return queryset
+
+
+class LocalitesListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = LocalitesSerializer
+    
+    def get_queryset(self):
+        queryset = Localites.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            queryset = queryset.filter(commune_id=commune_id)
+        return queryset
+
+
+class MarchesListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = MarchesSerializer
+    
+    def get_queryset(self):
+        queryset = Marches.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            queryset = queryset.filter(commune_id=commune_id)
+        return queryset
+
+
+class PassagesSubmersiblesListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = PassagesSubmersiblesSerializer
+    
+    def get_queryset(self):
+        queryset = PassagesSubmersibles.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            queryset = queryset.filter(commune_id=commune_id)
+        return queryset
+
+
+class PontsListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = PontsSerializer
+    
+    def get_queryset(self):
+        queryset = Ponts.objects.all()
+        commune_id = self.request.query_params.get('commune_id')
+        if commune_id:
+            queryset = queryset.filter(commune_id=commune_id)
+        return queryset

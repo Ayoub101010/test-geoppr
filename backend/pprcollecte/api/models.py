@@ -1,13 +1,19 @@
-from django.contrib.gis.db import models
+
+
+from django.contrib.gis.db import models # type: ignore
+
 
 class Login(models.Model):
+    """
+    Modele utilisateur unifie
+    Utilise communes_rurales_id pour coherence DB
+    """
     nom = models.TextField()
     prenom = models.TextField()
     mail = models.TextField(unique=True)
     mdp = models.TextField()
     role = models.TextField()
     
-    # NOUVELLE LIGNE Ã€ AJOUTER :
     communes_rurales_id = models.ForeignKey(
         'CommuneRurale',
         on_delete=models.SET_NULL,
@@ -24,10 +30,9 @@ class Login(models.Model):
     def __str__(self):
         return f"{self.nom} {self.prenom} ({self.mail})"
 
-    
     @property
     def commune_complete(self):
-        """Retourne les informations complÃ¨tes de localisation"""
+        """Retourne les informations completes de localisation"""
         if not self.communes_rurales_id:
             return None
         
@@ -45,11 +50,6 @@ class Login(models.Model):
         }
 
 
-from django.contrib.gis.db import models
-
-
-from django.contrib.gis.db import models
-
 class Region(models.Model):
     nom = models.CharField(max_length=80, null=True, blank=True)
     geom = models.MultiPolygonField(srid=4326, null=True, blank=True)
@@ -61,7 +61,7 @@ class Region(models.Model):
         managed = False
 
     def __str__(self):
-        return self.nom
+        return self.nom or "Region sans nom"
 
 
 class Prefecture(models.Model):
@@ -69,7 +69,7 @@ class Prefecture(models.Model):
         Region,
         db_column='regions_id',
         on_delete=models.CASCADE
-    )    
+    )
     nom = models.CharField(max_length=80, null=True, blank=True)
     geom = models.MultiPolygonField(srid=4326, null=True, blank=True)
     created_at = models.DateField(null=True, blank=True)
@@ -80,7 +80,7 @@ class Prefecture(models.Model):
         managed = False
 
     def __str__(self):
-        return self.nom
+        return self.nom or "Prefecture sans nom"
 
 
 class CommuneRurale(models.Model):
@@ -101,42 +101,62 @@ class CommuneRurale(models.Model):
         managed = False
 
     def __str__(self):
-        return self.nom
-    
+        return self.nom or "Commune sans nom"
+
+
 class Piste(models.Model):
+    """
+    Modele Piste avec geometrie en SRID 32628 (UTM)
+    """
     communes_rurales_id = models.ForeignKey(
-        CommuneRurale, 
+        CommuneRurale,
         on_delete=models.SET_NULL,
-        null=True, 
-        blank=True, 
+        null=True,
+        blank=True,
         db_column='communes_rurales_id'
     )
-    code_piste = models.CharField(max_length=50, unique=True, null=True, blank=True)  # texte
-    geom = models.MultiLineStringField(srid=32628, null=True, blank=True)  # alignÃ© avec PostGIS
-    heure_debut = models.TimeField(null=True, blank=True)  # time dans PostgreSQL
+    code_piste = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    geom = models.MultiLineStringField(srid=32628, null=True, blank=True)
+    
+    # Informations horaires
+    heure_debut = models.TimeField(null=True, blank=True)
     heure_fin = models.TimeField(null=True, blank=True)
+    
+    # Origine
     nom_origine_piste = models.TextField(null=True, blank=True)
     x_origine = models.FloatField(null=True, blank=True)
     y_origine = models.FloatField(null=True, blank=True)
+    
+    # Destination
     nom_destination_piste = models.TextField(null=True, blank=True)
     x_destination = models.FloatField(null=True, blank=True)
     y_destination = models.FloatField(null=True, blank=True)
+    
+    # Intersection
     existence_intersection = models.IntegerField(null=True, blank=True)
     x_intersection = models.FloatField(null=True, blank=True)
     y_intersection = models.FloatField(null=True, blank=True)
+    
+    # Occupation
     type_occupation = models.TextField(null=True, blank=True)
     debut_occupation = models.DateTimeField(null=True, blank=True)
     fin_occupation = models.DateTimeField(null=True, blank=True)
+    
+    # Caracteristiques
     largeur_emprise = models.FloatField(null=True, blank=True)
-    frequence_trafic = models.CharField(max_length=50, null=True, blank=True)  # texte
+    frequence_trafic = models.CharField(max_length=50, null=True, blank=True)
     type_trafic = models.TextField(null=True, blank=True)
+    
+    # Travaux
     travaux_realises = models.TextField(null=True, blank=True)
     date_travaux = models.TextField(null=True, blank=True)
     entreprise = models.TextField(null=True, blank=True)
+    
+    # Metadonnees
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     login_id = models.ForeignKey(
-        'Login', 
+        'Login',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -148,38 +168,38 @@ class Piste(models.Model):
         managed = True
 
     def __str__(self):
-        return f"Piste {self.code_piste} - {self.nom_origine_piste} â†’ {self.nom_destination_piste}"
+        return f"Piste {self.code_piste} - {self.nom_origine_piste} vers {self.nom_destination_piste}"
 
 
+# ==================== INFRASTRUCTURES ====================
 
 class ServicesSantes(models.Model):
     fid = models.BigAutoField(primary_key=True)
     geom = models.PointField(srid=4326)
     sqlite_id = models.IntegerField(null=True, blank=True, db_column='id')
+    
     x_sante = models.FloatField(null=True, blank=True)
     y_sante = models.FloatField(null=True, blank=True)
     nom = models.CharField(max_length=254, null=True, blank=True)
     type = models.CharField(max_length=254, null=True, blank=True)
     date_creat = models.DateField(null=True, blank=True)
-    created_at = models.CharField(max_length=24, null=True, blank=True)
-    updated_at = models.CharField(max_length=24, null=True, blank=True)
     code_gps = models.CharField(max_length=254, null=True, blank=True)
+    
     code_piste = models.ForeignKey(
-    Piste,
-    to_field='code_piste',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='code_piste'
-)
-
+        Piste,
+        to_field='code_piste',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='code_piste'
+    )
     login_id = models.ForeignKey(
-    Login,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='login_id'
-)
+        Login,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='login_id'
+    )
     commune_id = models.ForeignKey(
         CommuneRurale,
         on_delete=models.SET_NULL,
@@ -188,8 +208,9 @@ class ServicesSantes(models.Model):
         db_column='commune_id',
         related_name='services_santes'
     )
-
-
+    
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
 
     class Meta:
         db_table = 'services_santes'
@@ -203,29 +224,29 @@ class AutresInfrastructures(models.Model):
     fid = models.BigAutoField(primary_key=True)
     geom = models.PointField(srid=4326)
     sqlite_id = models.IntegerField(null=True, blank=True, db_column='id')
+    
+    # CORRECTION: Noms reels de la DB mobile
     x_autre_in = models.FloatField(null=True, blank=True)
     y_autre_in = models.FloatField(null=True, blank=True)
     type = models.CharField(max_length=254, null=True, blank=True)
     date_creat = models.DateField(null=True, blank=True)
-    created_at = models.CharField(max_length=24, null=True, blank=True)
-    updated_at = models.CharField(max_length=24, null=True, blank=True)
     code_gps = models.CharField(max_length=254, null=True, blank=True)
+    
     code_piste = models.ForeignKey(
-    Piste,
-    to_field='code_piste',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='code_piste'
-)
-
+        Piste,
+        to_field='code_piste',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='code_piste'
+    )
     login_id = models.ForeignKey(
-    Login,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='login_id'
-)
+        Login,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='login_id'
+    )
     commune_id = models.ForeignKey(
         CommuneRurale,
         on_delete=models.SET_NULL,
@@ -234,8 +255,9 @@ class AutresInfrastructures(models.Model):
         db_column='commune_id',
         related_name='autres_infrastructures'
     )
-
-
+    
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
 
     class Meta:
         db_table = 'autres_infrastructures'
@@ -249,32 +271,31 @@ class Bacs(models.Model):
     fid = models.BigAutoField(primary_key=True)
     geom = models.GeometryField(srid=4326)
     sqlite_id = models.IntegerField(null=True, blank=True, db_column='id')
+    
     x_debut_tr = models.FloatField(null=True, blank=True)
     y_debut_tr = models.FloatField(null=True, blank=True)
     x_fin_trav = models.FloatField(null=True, blank=True)
     y_fin_trav = models.FloatField(null=True, blank=True)
     type_bac = models.CharField(max_length=254, null=True, blank=True)
     nom_cours = models.CharField(max_length=254, null=True, blank=True, db_column='nom_cours_')
-    created_at = models.CharField(max_length=24, null=True, blank=True)
-    updated_at = models.CharField(max_length=24, null=True, blank=True)
     code_gps = models.CharField(max_length=254, null=True, blank=True)
     endroit = models.CharField(max_length=254, null=True, blank=True)
+    
     code_piste = models.ForeignKey(
-    Piste,
-    to_field='code_piste',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='code_piste'
-)
-
+        Piste,
+        to_field='code_piste',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='code_piste'
+    )
     login_id = models.ForeignKey(
-    Login,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='login_id'
-)
+        Login,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='login_id'
+    )
     commune_id = models.ForeignKey(
         CommuneRurale,
         on_delete=models.SET_NULL,
@@ -283,8 +304,9 @@ class Bacs(models.Model):
         db_column='commune_id',
         related_name='bacs'
     )
-
-
+    
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
 
     class Meta:
         db_table = 'bacs'
@@ -298,30 +320,30 @@ class BatimentsAdministratifs(models.Model):
     fid = models.BigAutoField(primary_key=True)
     geom = models.PointField(srid=4326)
     sqlite_id = models.IntegerField(null=True, blank=True, db_column='id')
+    
+    # CORRECTION: Noms reels de la DB mobile
     x_batiment = models.FloatField(null=True, blank=True)
     y_batiment = models.FloatField(null=True, blank=True)
     nom = models.CharField(max_length=254, null=True, blank=True)
     type = models.CharField(max_length=254, null=True, blank=True)
     date_creat = models.DateField(null=True, blank=True)
-    created_at = models.CharField(max_length=24, null=True, blank=True)
-    updated_at = models.CharField(max_length=24, null=True, blank=True)
     code_gps = models.CharField(max_length=254, null=True, blank=True)
+    
     code_piste = models.ForeignKey(
-    Piste,
-    to_field='code_piste',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='code_piste'
-)
-
+        Piste,
+        to_field='code_piste',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='code_piste'
+    )
     login_id = models.ForeignKey(
-    Login,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='login_id'
-)
+        Login,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='login_id'
+    )
     commune_id = models.ForeignKey(
         CommuneRurale,
         on_delete=models.SET_NULL,
@@ -330,8 +352,9 @@ class BatimentsAdministratifs(models.Model):
         db_column='commune_id',
         related_name='batiments_administratifs'
     )
-
-
+    
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
 
     class Meta:
         db_table = 'batiments_administratifs'
@@ -345,27 +368,27 @@ class Buses(models.Model):
     fid = models.BigAutoField(primary_key=True)
     geom = models.PointField(srid=4326)
     sqlite_id = models.IntegerField(null=True, blank=True, db_column='id')
+    
     x_buse = models.FloatField(null=True, blank=True)
     y_buse = models.FloatField(null=True, blank=True)
-    created_at = models.CharField(max_length=24, null=True, blank=True)
-    updated_at = models.CharField(max_length=24, null=True, blank=True)
+    # CORRECTION: type_buse n'existe PAS dans la DB mobile
     code_gps = models.CharField(max_length=254, null=True, blank=True)
+    
     code_piste = models.ForeignKey(
-    Piste,
-    to_field='code_piste',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='code_piste'
-)
-
+        Piste,
+        to_field='code_piste',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='code_piste'
+    )
     login_id = models.ForeignKey(
-    Login,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='login_id'
-)
+        Login,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='login_id'
+    )
     commune_id = models.ForeignKey(
         CommuneRurale,
         on_delete=models.SET_NULL,
@@ -374,8 +397,9 @@ class Buses(models.Model):
         db_column='commune_id',
         related_name='buses'
     )
-
-
+    
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
 
     class Meta:
         db_table = 'buses'
@@ -389,28 +413,28 @@ class Dalots(models.Model):
     fid = models.BigAutoField(primary_key=True)
     geom = models.PointField(srid=4326)
     sqlite_id = models.IntegerField(null=True, blank=True, db_column='id')
+    
     x_dalot = models.FloatField(null=True, blank=True)
     y_dalot = models.FloatField(null=True, blank=True)
+    # CORRECTION: type_dalot n'existe PAS, c'est "situation" dans la DB mobile
     situation = models.CharField(max_length=254, null=True, blank=True, db_column='situation_')
-    created_at = models.CharField(max_length=24, null=True, blank=True)
-    updated_at = models.CharField(max_length=24, null=True, blank=True)
     code_gps = models.CharField(max_length=254, null=True, blank=True)
+    
     code_piste = models.ForeignKey(
-    Piste,
-    to_field='code_piste',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='code_piste'
-)
-
+        Piste,
+        to_field='code_piste',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='code_piste'
+    )
     login_id = models.ForeignKey(
-    Login,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='login_id'
-)
+        Login,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='login_id'
+    )
     commune_id = models.ForeignKey(
         CommuneRurale,
         on_delete=models.SET_NULL,
@@ -419,8 +443,9 @@ class Dalots(models.Model):
         db_column='commune_id',
         related_name='dalots'
     )
-
-
+    
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
 
     class Meta:
         db_table = 'dalots'
@@ -434,30 +459,29 @@ class Ecoles(models.Model):
     fid = models.BigAutoField(primary_key=True)
     geom = models.PointField(srid=4326)
     sqlite_id = models.IntegerField(null=True, blank=True, db_column='id')
+    
     x_ecole = models.FloatField(null=True, blank=True)
     y_ecole = models.FloatField(null=True, blank=True)
     nom = models.CharField(max_length=254, null=True, blank=True)
     type = models.CharField(max_length=254, null=True, blank=True)
     date_creat = models.DateField(null=True, blank=True)
-    created_at = models.CharField(max_length=24, null=True, blank=True)
-    updated_at = models.CharField(max_length=24, null=True, blank=True)
     code_gps = models.CharField(max_length=254, null=True, blank=True)
+    
     code_piste = models.ForeignKey(
-    Piste,
-    to_field='code_piste',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='code_piste'
-)
-
+        Piste,
+        to_field='code_piste',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='code_piste'
+    )
     login_id = models.ForeignKey(
-    Login,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='login_id'
-)
+        Login,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='login_id'
+    )
     commune_id = models.ForeignKey(
         CommuneRurale,
         on_delete=models.SET_NULL,
@@ -466,8 +490,9 @@ class Ecoles(models.Model):
         db_column='commune_id',
         related_name='ecoles'
     )
-
-
+    
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
 
     class Meta:
         db_table = 'ecoles'
@@ -481,30 +506,29 @@ class InfrastructuresHydrauliques(models.Model):
     fid = models.BigAutoField(primary_key=True)
     geom = models.PointField(srid=4326)
     sqlite_id = models.IntegerField(null=True, blank=True, db_column='id')
+    
     x_infrastr = models.FloatField(null=True, blank=True)
     y_infrastr = models.FloatField(null=True, blank=True)
     nom = models.CharField(max_length=254, null=True, blank=True)
     type = models.CharField(max_length=254, null=True, blank=True)
     date_creat = models.DateField(null=True, blank=True)
-    created_at = models.CharField(max_length=24, null=True, blank=True)
-    updated_at = models.CharField(max_length=24, null=True, blank=True)
     code_gps = models.CharField(max_length=254, null=True, blank=True)
+    
     code_piste = models.ForeignKey(
-    Piste,
-    to_field='code_piste',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='code_piste'
-)
-
+        Piste,
+        to_field='code_piste',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='code_piste'
+    )
     login_id = models.ForeignKey(
-    Login,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='login_id'
-)
+        Login,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='login_id'
+    )
     commune_id = models.ForeignKey(
         CommuneRurale,
         on_delete=models.SET_NULL,
@@ -513,8 +537,9 @@ class InfrastructuresHydrauliques(models.Model):
         db_column='commune_id',
         related_name='infrastructures_hydrauliques'
     )
-
-
+    
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
 
     class Meta:
         db_table = 'infrastructures_hydrauliques'
@@ -528,29 +553,28 @@ class Localites(models.Model):
     fid = models.BigAutoField(primary_key=True)
     geom = models.PointField(srid=4326)
     sqlite_id = models.IntegerField(null=True, blank=True, db_column='id')
+    
     x_localite = models.FloatField(null=True, blank=True)
     y_localite = models.FloatField(null=True, blank=True)
     nom = models.CharField(max_length=254, null=True, blank=True)
     type = models.CharField(max_length=254, null=True, blank=True)
-    created_at = models.CharField(max_length=24, null=True, blank=True)
-    updated_at = models.CharField(max_length=24, null=True, blank=True)
     code_gps = models.CharField(max_length=254, null=True, blank=True)
+    
     code_piste = models.ForeignKey(
-    Piste,
-    to_field='code_piste',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='code_piste'
-)
-
+        Piste,
+        to_field='code_piste',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='code_piste'
+    )
     login_id = models.ForeignKey(
-    Login,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='login_id'
-)
+        Login,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='login_id'
+    )
     commune_id = models.ForeignKey(
         CommuneRurale,
         on_delete=models.SET_NULL,
@@ -559,8 +583,9 @@ class Localites(models.Model):
         db_column='commune_id',
         related_name='localites'
     )
-
-
+    
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
 
     class Meta:
         db_table = 'localites'
@@ -574,29 +599,28 @@ class Marches(models.Model):
     fid = models.BigAutoField(primary_key=True)
     geom = models.PointField(srid=4326)
     sqlite_id = models.IntegerField(null=True, blank=True, db_column='id')
+    
     x_marche = models.FloatField(null=True, blank=True)
     y_marche = models.FloatField(null=True, blank=True)
     nom = models.CharField(max_length=254, null=True, blank=True)
     type = models.CharField(max_length=254, null=True, blank=True)
-    created_at = models.CharField(max_length=24, null=True, blank=True)
-    updated_at = models.CharField(max_length=24, null=True, blank=True)
     code_gps = models.CharField(max_length=254, null=True, blank=True)
+    
     code_piste = models.ForeignKey(
-    Piste,
-    to_field='code_piste',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='code_piste'
-)
-
+        Piste,
+        to_field='code_piste',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='code_piste'
+    )
     login_id = models.ForeignKey(
-    Login,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='login_id'
-)
+        Login,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='login_id'
+    )
     commune_id = models.ForeignKey(
         CommuneRurale,
         on_delete=models.SET_NULL,
@@ -605,8 +629,9 @@ class Marches(models.Model):
         db_column='commune_id',
         related_name='marches'
     )
-
-
+    
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
 
     class Meta:
         db_table = 'marches'
@@ -620,31 +645,30 @@ class PassagesSubmersibles(models.Model):
     fid = models.BigAutoField(primary_key=True)
     geom = models.LineStringField(srid=4326)
     sqlite_id = models.IntegerField(null=True, blank=True, db_column='id')
+    
     x_debut_pa = models.FloatField(null=True, blank=True)
     y_debut_pa = models.FloatField(null=True, blank=True)
     x_fin_pass = models.FloatField(null=True, blank=True)
     y_fin_pass = models.FloatField(null=True, blank=True)
     type_mater = models.CharField(max_length=254, null=True, blank=True)
-    created_at = models.CharField(max_length=24, null=True, blank=True)
-    updated_at = models.CharField(max_length=24, null=True, blank=True)
     code_gps = models.CharField(max_length=254, null=True, blank=True)
     endroit = models.CharField(max_length=32, null=True, blank=True)
+    
     code_piste = models.ForeignKey(
-    Piste,
-    to_field='code_piste',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='code_piste'
-)
-
+        Piste,
+        to_field='code_piste',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='code_piste'
+    )
     login_id = models.ForeignKey(
-    Login,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='login_id'
-)
+        Login,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='login_id'
+    )
     commune_id = models.ForeignKey(
         CommuneRurale,
         on_delete=models.SET_NULL,
@@ -653,9 +677,9 @@ class PassagesSubmersibles(models.Model):
         db_column='commune_id',
         related_name='passages_submersibles'
     )
-
-
-
+    
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
 
     class Meta:
         db_table = 'passages_submersibles'
@@ -669,30 +693,29 @@ class Ponts(models.Model):
     fid = models.BigAutoField(primary_key=True)
     geom = models.PointField(srid=4326)
     sqlite_id = models.IntegerField(null=True, blank=True, db_column='id')
+    
     x_pont = models.FloatField(null=True, blank=True)
     y_pont = models.FloatField(null=True, blank=True)
     situation = models.CharField(max_length=254, null=True, blank=True, db_column='situation_')
     type_pont = models.CharField(max_length=254, null=True, blank=True)
     nom_cours = models.CharField(max_length=254, null=True, blank=True, db_column='nom_cours_')
-    created_at = models.CharField(max_length=24, null=True, blank=True)
-    updated_at = models.CharField(max_length=24, null=True, blank=True)
     code_gps = models.CharField(max_length=254, null=True, blank=True)
+    
     code_piste = models.ForeignKey(
-    Piste,
-    to_field='code_piste',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='code_piste'
-)
-
+        Piste,
+        to_field='code_piste',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='code_piste'
+    )
     login_id = models.ForeignKey(
-    Login,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    db_column='login_id'
-)
+        Login,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='login_id'
+    )
     commune_id = models.ForeignKey(
         CommuneRurale,
         on_delete=models.SET_NULL,
@@ -701,8 +724,9 @@ class Ponts(models.Model):
         db_column='commune_id',
         related_name='ponts'
     )
-
-
+    
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
 
     class Meta:
         db_table = 'ponts'
@@ -710,3 +734,128 @@ class Ponts(models.Model):
 
     def __str__(self):
         return f"Pont {self.fid} - {self.nom_cours or ''}"
+
+
+class Chaussees(models.Model):
+    """Modele Chaussees - present dans la base finale"""
+    fid = models.BigAutoField(primary_key=True, db_column='fid')
+    geom = models.MultiLineStringField(srid=4326, null=True, blank=True)
+    sqlite_id = models.BigIntegerField(null=True, blank=True, db_column='id')
+    
+    # Coordonnees
+    x_debut_ch = models.FloatField(null=True, blank=True)
+    y_debut_ch = models.FloatField(null=True, blank=True)
+    x_fin_ch = models.FloatField(null=True, blank=True)
+    y_fin_chau = models.FloatField(null=True, blank=True)
+    
+    # Caracteristiques
+    type_chaus = models.CharField(max_length=254, null=True, blank=True)
+    etat_piste = models.CharField(max_length=254, null=True, blank=True)
+    endroit = models.CharField(max_length=32, null=True, blank=True)
+    code_gps = models.CharField(max_length=254, null=True, blank=True)
+    
+    # Relations - IMPORTANT: utilise communes_rurales_id dans la DB finale
+    code_piste = models.ForeignKey(
+        Piste,
+        to_field='code_piste',
+        db_column='code_piste',
+        on_delete=models.CASCADE,
+        related_name='chaussees'
+    )
+    login_id = models.ForeignKey(
+        Login,
+        db_column='login_id',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='chaussees'
+    )
+    communes_rurales_id = models.ForeignKey(
+        CommuneRurale,
+        db_column='communes_rurales_id',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='chaussees'
+    )
+    
+    # Metadonnees
+    created_at = models.CharField(max_length=50, null=True, blank=True)
+    updated_at = models.CharField(max_length=50, null=True, blank=True)
+
+    class Meta:
+        db_table = 'chaussees'
+        managed = False
+
+    def __str__(self):
+        return f"Chaussee {self.fid} ({self.code_piste_id})"
+
+
+class PointsCoupures(models.Model):
+    """Points de coupure"""
+    fid = models.BigAutoField(primary_key=True, db_column='fid')
+    geom = models.PointField(srid=4326, null=True, blank=True)
+    sqlite_id = models.BigIntegerField(null=True, blank=True, db_column='id')
+    
+    # Informations
+    cause_coup = models.CharField(max_length=50, null=True, blank=True)
+    x_point_co = models.FloatField(null=True, blank=True)
+    y_point_co = models.FloatField(null=True, blank=True)
+    code_gps = models.CharField(max_length=254, null=True, blank=True)
+    
+    # Relations
+    chaussee_id = models.BigIntegerField(null=True, blank=True, db_column='chaussee_id')
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        db_column='commune_id',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='points_coupures'
+    )
+    
+    # Metadonnees
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
+
+    class Meta:
+        db_table = 'points_coupures'
+        managed = False
+
+    def __str__(self):
+        return f"Point coupure {self.fid}"
+
+
+class PointsCritiques(models.Model):
+    """Points critiques"""
+    fid = models.BigAutoField(primary_key=True, db_column='fid')
+    geom = models.PointField(srid=4326, null=True, blank=True)
+    sqlite_id = models.BigIntegerField(null=True, blank=True, db_column='id')
+    
+    # Informations
+    type_point = models.CharField(max_length=50, null=True, blank=True)
+    x_point_cr = models.FloatField(null=True, blank=True)
+    y_point_cr = models.FloatField(null=True, blank=True)
+    code_gps = models.CharField(max_length=254, null=True, blank=True)
+    
+    # Relations
+    chaussee_id = models.BigIntegerField(null=True, blank=True, db_column='chaussee_id')
+    commune_id = models.ForeignKey(
+        CommuneRurale,
+        db_column='commune_id',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='points_critiques'
+    )
+    
+    # Metadonnees
+    created_at = models.CharField(max_length=24, null=True, blank=True)
+    updated_at = models.CharField(max_length=24, null=True, blank=True)
+
+    class Meta:
+        db_table = 'points_critiques'
+        managed = False
+
+    def __str__(self):
+        return f"Point critique {self.fid}"

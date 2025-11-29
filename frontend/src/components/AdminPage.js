@@ -16,14 +16,47 @@ const AdminPage = () => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileRef = useRef(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const { user, logout } = useAuth();
   
-  const [profile, setProfile] = useState({
-    nom: user?.nom || "Admin",
-    prenom: user?.prenom || "",
-    email: user?.mail || "admin@example.com",
-  });
+  // Récupérer les infos utilisateur
+  const getUserInfo = () => {
+    // Priorité 1: Context
+    if (user) {
+      return {
+        nom: user.nom || user.last_name || "Utilisateur",
+        prenom: user.prenom || user.first_name || "",
+        email: user.mail || user.email || "",
+        role: user.role || "admin"
+      };
+    }
+    
+    // Priorité 2: localStorage
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const userData = JSON.parse(userStr);
+        return {
+          nom: userData.nom || userData.last_name || "Utilisateur",
+          prenom: userData.prenom || userData.first_name || "",
+          email: userData.mail || userData.email || "",
+          role: userData.role || "admin"
+        };
+      } catch (e) {
+        console.error('Erreur parsing user:', e);
+      }
+    }
+    
+    return { nom: "Utilisateur", prenom: "", email: "", role: "admin" };
+  };
+  
+  const [profile] = useState(getUserInfo());
+  
+  // Générer les initiales (2 premières lettres)
+  const getInitials = () => {
+    const firstLetter = profile.prenom ? profile.prenom.charAt(0).toUpperCase() : '';
+    const secondLetter = profile.nom ? profile.nom.charAt(0).toUpperCase() : '';
+    return firstLetter + secondLetter || 'AD';
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -40,23 +73,11 @@ const AdminPage = () => {
     window.location.href = "/";
   };
 
-  const handleEditProfile = () => {
-    setShowEditProfileModal(true);
-    setShowProfileMenu(false);
-  };
-
-  const handleSaveProfile = () => {
-    console.log("Profil sauvegardé:", profile);
-    setShowEditProfileModal(false);
-  };
-
   return (
     <div className="superadmin-wrapper">
       {/* Header identique */}
       <div className="header">
-        <div className="logo">
-          <img src={geoLogo} alt="GeoPPR Logo" />
-        </div>
+        
 
         {/* Navigation SANS l'option Utilisateurs */}
         <div className="nav-menu">
@@ -75,28 +96,23 @@ const AdminPage = () => {
           {/* PAS de section Utilisateurs pour les admins */}
         </div>
 
-        {/* Profil */}
-        <div className="profile-section" ref={profileRef}>
-          <div
-            className="profile-info"
+        {/* Profil - Version corrigée */}
+        <div className="user-profile" ref={profileRef}>
+          <div 
+            className="profile-pic"
             onClick={() => setShowProfileMenu(!showProfileMenu)}
+            style={{ cursor: "pointer" }}
           >
-            <div className="profile-avatar">
-              {profile.nom.charAt(0).toUpperCase()}
-            </div>
-            <span className="profile-name">
-              {profile.nom} {profile.prenom}
-            </span>
-            <span className="profile-role">Administrateur</span>
-            <i className="fas fa-chevron-down"></i>
+            {getInitials()}
+          </div>
+          <div className="user-info">
+            <h4>{profile.prenom} {profile.nom}</h4>
+            <span>Administrateur</span>
           </div>
 
           {showProfileMenu && (
             <div className="profile-dropdown">
               <ul>
-                <li onClick={handleEditProfile}>
-                  <i className="fas fa-user-edit"></i> Modifier le profil
-                </li>
                 <li onClick={() => { setShowLogoutModal(true); setShowProfileMenu(false); }}>
                   <i className="fas fa-sign-out-alt"></i> Déconnexion
                 </li>
@@ -106,59 +122,7 @@ const AdminPage = () => {
         </div>
       </div>
 
-      {/* Modales identiques */}
-      {showEditProfileModal && (
-        <div className="modal-overlay" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-content">
-            <h2 className="modal-title">Modifier le profil</h2>
-            <form
-              className="modal-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSaveProfile();
-              }}
-            >
-              <div className="form-group">
-                <label htmlFor="nom" className="modal-label">Nom</label>
-                <input
-                  id="nom"
-                  type="text"
-                  value={profile.nom}
-                  className="modal-input"
-                  onChange={(e) => setProfile({ ...profile, nom: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="prenom" className="modal-label">Prénom</label>
-                <input
-                  id="prenom"
-                  type="text"
-                  value={profile.prenom}
-                  className="modal-input"
-                  onChange={(e) => setProfile({ ...profile, prenom: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="email" className="modal-label">Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  value={profile.email}
-                  className="modal-input"
-                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                />
-              </div>
-              <div className="modal-buttons">
-                <button type="submit">Enregistrer</button>
-                <button type="button" onClick={() => setShowEditProfileModal(false)}>
-                  Annuler
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
+      {/* Modal déconnexion */}
       {showLogoutModal && (
         <div className="modal-overlay" onClick={(e) => e.stopPropagation()}>
           <div className="modal-content">

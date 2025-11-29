@@ -82,7 +82,7 @@ WSGI_APPLICATION = 'pprcollecte.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': 'pprprojet',
+        'NAME': 'ppr_db',
         'USER': 'postgres',
         'PASSWORD': 'geoinfo',
         'HOST': '127.0.0.1',
@@ -173,5 +173,9 @@ SIMPLE_JWT = {
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'AUTH_HEADER_TYPES': ('Bearer',),
+}
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 50,
 }
 

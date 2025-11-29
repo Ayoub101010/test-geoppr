@@ -1,5 +1,3 @@
-
-
 const API_BASE_URL = 'http://localhost:8000/api';
 
 class AuthService {
@@ -25,15 +23,21 @@ class AuthService {
 
       const data = await response.json();
 
-      if (response.ok && data.success) {
-        this.setTokens(data.tokens);
+      // ✅ CORRIGÉ : Le backend renvoie {access, refresh, user, expires_in}
+      if (response.ok && data.access && data.user) {
+        // ✅ CORRIGÉ : Les tokens sont directement dans data
+        this.setTokens({
+          access: data.access,
+          refresh: data.refresh,
+          expires_in: data.expires_in
+        });
         this.setUser(data.user);
         this.startTokenRefresh();
         
         return { 
           success: true, 
           user: data.user,
-          message: data.message 
+          message: 'Connexion réussie' 
         };
       } else {
         return { 
@@ -159,10 +163,12 @@ class AuthService {
 
       const data = await response.json();
 
-      if (response.ok && data.success) {
+      // ✅ CORRIGÉ : Le refresh renvoie juste {access}
+      if (response.ok && data.access) {
         localStorage.setItem('access_token', data.access);
         
-        const expiresAt = Date.now() + (data.expires_in * 1000);
+        // Expires in par défaut 1h
+        const expiresAt = Date.now() + (3600 * 1000);
         localStorage.setItem('token_expires_at', expiresAt);
         
         console.log('✅ Token rafraîchi');
@@ -190,11 +196,12 @@ class AuthService {
       if (expiresAt) {
         const timeUntilExpiry = parseInt(expiresAt) - Date.now();
         
+        // Rafraîchir 10 min avant expiration
         if (timeUntilExpiry < 10 * 60 * 1000) {
           this.refreshAccessToken();
         }
       }
-    }, 5 * 60 * 1000);
+    }, 5 * 60 * 1000); // Vérifier toutes les 5 min
   }
 
   stopTokenRefresh() {

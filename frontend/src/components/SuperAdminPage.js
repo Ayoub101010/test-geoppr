@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import geoLogo from "../assets/GeoPPR_Logo.png";
+
 import "leaflet/dist/leaflet.css";
 import TimeChart from "./TimeChart";
 import InfrastructureDonut from "./InfrastructureDonut";
@@ -13,16 +13,38 @@ import CommuneSelector from './CommuneSelector';
 import GeographicFilter from './GeographicFilterWithZoom';
 
 const SuperAdminPage = () => {
-  const [currentView, setCurrentView] = useState("map");
+  const [currentView, setCurrentView] = useState("map"); // ← AJOUTÉ
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileRef = useRef(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
-  const [profile, setProfile] = useState({
-    nom: "Admin",
-    prenom: "Admin1",
-    email: "Admin@example.com",
-  });
+  
+  // Récupérer les infos utilisateur depuis localStorage
+  const getUserInfo = () => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        return {
+          nom: user.nom || user.last_name || "Utilisateur",
+          prenom: user.prenom || user.first_name || "",
+          email: user.email || "",
+          role: user.role || "super_admin"
+        };
+      } catch (e) {
+        console.error('Erreur parsing user:', e);
+      }
+    }
+    return { nom: "Utilisateur", prenom: "", email: "", role: "super_admin" };
+  };
+  
+  const [profile] = useState(getUserInfo());
+  
+  // Générer les initiales (2 premières lettres)
+  const getInitials = () => {
+    const firstLetter = profile.prenom ? profile.prenom.charAt(0).toUpperCase() : '';
+    const secondLetter = profile.nom ? profile.nom.charAt(0).toUpperCase() : '';
+    return firstLetter + secondLetter || 'SA';
+  };
 
   // État des filtres
   const [filters, setFilters] = useState({
@@ -97,16 +119,6 @@ const SuperAdminPage = () => {
     window.location.href = '/';
   };
 
-  const handleEditProfile = () => {
-    setShowEditProfileModal(true);
-    setShowProfileMenu(false);
-  };
-
-  const handleSaveProfile = () => {
-    console.log('Profil sauvegardé:', profile);
-    setShowEditProfileModal(false);
-  };
-
   return (
     <div className="superadmin-wrapper">
       {/* Overlay export */}
@@ -119,9 +131,7 @@ const SuperAdminPage = () => {
 
       {/* Header */}
       <div className="header">
-        <div className="logo">
-          <img src={geoLogo} alt="GeoPPR Logo" />
-        </div>
+        
         
         <div className="nav-menu">
           <div
@@ -150,7 +160,7 @@ const SuperAdminPage = () => {
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             style={{ cursor: "pointer" }}
           >
-            SA
+            {getInitials()}
           </div>
           <div className="user-info">
             <h4>{profile.prenom} {profile.nom}</h4>
@@ -160,9 +170,6 @@ const SuperAdminPage = () => {
           {showProfileMenu && (
             <div className="profile-dropdown">
               <ul>
-                <li onClick={handleEditProfile}>
-                  <i className="fas fa-edit"></i> Modifier le profil
-                </li>
                 <li onClick={() => setShowLogoutModal(true)}>
                   <i className="fas fa-sign-out-alt"></i> Déconnexion
                 </li>
@@ -171,59 +178,6 @@ const SuperAdminPage = () => {
           )}
         </div>
       </div>
-
-      {/* Modals */}
-      {showEditProfileModal && (
-        <div className="modal-overlay" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-content">
-            <h2 className="modal-title">Modifier le profil</h2>
-            <form
-              className="modal-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSaveProfile();
-              }}
-            >
-              <div className="form-group">
-                <label htmlFor="nom" className="modal-label">Nom</label>
-                <input
-                  id="nom"
-                  type="text"
-                  value={profile.nom}
-                  className="modal-input"
-                  onChange={(e) => setProfile({ ...profile, nom: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="prenom" className="modal-label">Prénom</label>
-                <input
-                  id="prenom"
-                  type="text"
-                  value={profile.prenom}
-                  className="modal-input"
-                  onChange={(e) => setProfile({ ...profile, prenom: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="email" className="modal-label">Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  value={profile.email}
-                  className="modal-input"
-                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                />
-              </div>
-              <div className="modal-buttons">
-                <button type="submit">Enregistrer</button>
-                <button type="button" onClick={() => setShowEditProfileModal(false)}>
-                  Annuler
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {showLogoutModal && (
         <div className="modal-overlay" onClick={(e) => e.stopPropagation()}>
@@ -298,7 +252,6 @@ const SuperAdminPage = () => {
             </div>
           </div>
 
-          {/* Filtres infrastructures */}
           {/* Filtres infrastructures */}
           <div className="filter-section">
             <div className="filter-title">

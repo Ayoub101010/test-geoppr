@@ -34,6 +34,35 @@ const Dashboard = () => {
     }
   }, []);
 
+  // ✅ NOUVEAU: Indicateur de scroll horizontal et vertical (ombres)
+  useEffect(() => {
+    const tableContainer = document.querySelector('.dashboard-table');
+    
+    if (tableContainer) {
+      const checkScroll = () => {
+        const hasHorizontalScroll = tableContainer.scrollWidth > tableContainer.clientWidth;
+        const hasVerticalScroll = tableContainer.scrollHeight > tableContainer.clientHeight;
+        
+        if (hasHorizontalScroll) {
+          tableContainer.classList.add('has-horizontal-scroll');
+        } else {
+          tableContainer.classList.remove('has-horizontal-scroll');
+        }
+        
+        if (hasVerticalScroll) {
+          tableContainer.classList.add('has-vertical-scroll');
+        } else {
+          tableContainer.classList.remove('has-vertical-scroll');
+        }
+      };
+      
+      checkScroll();
+      window.addEventListener('resize', checkScroll);
+      
+      return () => window.removeEventListener('resize', checkScroll);
+    }
+  }, [data]);
+
   const loadPistes = async () => {
     // ✅ Protection contre appels multiples
     if (isLoadingRef.current) {
@@ -55,7 +84,6 @@ const Dashboard = () => {
           utilisateur: piste.utilisateur,
           localite: piste.commune,
           kilometrage: piste.kilometrage,
-          observations: `${piste.kilometrage} km - Total: ${piste.total_infrastructures}`,
           // Types d'infrastructures séparés
           buses: piste.infrastructures_par_type.Buses || 0,
           ponts: piste.infrastructures_par_type.Ponts || 0,
@@ -201,25 +229,15 @@ const Dashboard = () => {
           >
             <span>🔄</span> Actualiser
           </button>
-          <button className="btn btn-blue">
-            <FaFileCsv />
-            Export CSV
-          </button>
-          <button className="btn btn-purple">
-            <FaFileExcel />
-            Export Excel
-          </button>
-          <button className="btn btn-orange">
-            <FaChartBar />
-            Rapport
-          </button>
+         
+        
         </div>
       </div>
 
       <div className="dashboard-stats">
         <div className="stats-card">
           <h3>{data.length}</h3>
-          <p>Total des collectes</p>
+          <p>Total des pistes</p>
         </div>
         <div className="stats-card">
           <h3>{data.filter(d => d.utilisateur !== "Non assigné").length}</h3>
@@ -256,7 +274,7 @@ const Dashboard = () => {
               <th>Hydrauliques</th>
               <th>Localités</th>
               <th>Passages Sub.</th>
-              <th>Observations</th>
+              
             </tr>
           </thead>
           <tbody>
@@ -279,13 +297,12 @@ const Dashboard = () => {
                 <td className="infra-count">{item.hydrauliques}</td>
                 <td className="infra-count">{item.localites}</td>
                 <td className="infra-count">{item.passages}</td>
-                <td>{item.observations}</td>
+                
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-
       <div className="dashboard-pagination">
         <p>Affichage de {filteredData.length} sur {data.length} éléments</p>
       </div>

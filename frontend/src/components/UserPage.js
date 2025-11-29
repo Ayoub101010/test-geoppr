@@ -104,9 +104,6 @@ const UserPage = () => {
     <div className="superadmin-wrapper">
       {/* Header */}
       <div className="header">
-        <div className="logo">
-          <img src={geoLogo} alt="GeoPPR Logo" />
-        </div>
 
         <div className="nav-menu">
           <div

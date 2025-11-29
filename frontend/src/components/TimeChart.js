@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Chart from "chart.js/auto";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import "./TimeChart.css";
 import api from "./api";
 
@@ -8,6 +10,7 @@ const TimeChart = () => {
   const modalChartRef = useRef(null);
   const chartInstanceRef = useRef(null);
   const modalChartInstanceRef = useRef(null);
+  const exportContainerRef = useRef(null); // Référence pour l'export
   
   // États du composant
   const [isExpanded, setIsExpanded] = useState(false);
@@ -18,6 +21,7 @@ const TimeChart = () => {
   const [selectedTypes, setSelectedTypes] = useState(new Set());
   const [modalDateFrom, setModalDateFrom] = useState("");
   const [modalDateTo, setModalDateTo] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
   
   // États pour les filtres internes de la modal (seulement les types)
   const [modalFilters, setModalFilters] = useState({
@@ -82,6 +86,15 @@ const TimeChart = () => {
     'autres_infrastructures': 'autres_infrastructures'
   };
 
+  // Fonction pour formater une date en JJ/MM/AAAA
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   // Fonction pour valider la plage de dates (SIMPLIFIÉE - 7 jours max)
   const validateDateRange = (dateFrom, dateTo) => {
     if (!dateFrom || !dateTo) {
@@ -118,6 +131,121 @@ const TimeChart = () => {
     }
 
     return { valid: true, days: diffDays };
+  };
+
+  // Fonction pour générer les dates de la période
+  const generatePeriodDates = () => {
+    if (!modalDateFrom || !modalDateTo) return [];
+    
+    const dates = [];
+    const startDate = new Date(modalDateFrom);
+    const endDate = new Date(modalDateTo);
+    
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      dates.push(new Date(currentDate).toISOString().split('T')[0]);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return dates;
+  };
+
+  // Fonction pour construire les données du tableau récapitulatif
+  const buildSummaryTableData = () => {
+    const dates = generatePeriodDates();
+    const selectedTypesList = Array.from(selectedTypes);
+    
+    const tableData = selectedTypesList.map(type => {
+      const typeData = temporalData[type] || [];
+      const rowData = {
+        type: typeLabels[type] || type,
+        color: typeColors[type],
+        dates: {},
+        total: 0
+      };
+      
+      // Initialiser toutes les dates à 0
+      dates.forEach(date => {
+        rowData.dates[date] = 0;
+      });
+      
+      // Remplir avec les données réelles
+      typeData.forEach(item => {
+        if (rowData.dates.hasOwnProperty(item.period)) {
+          rowData.dates[item.period] = item.count;
+          rowData.total += item.count;
+        }
+      });
+      
+      return rowData;
+    });
+    
+    return { dates, tableData };
+  };
+
+  // Fonction d'export PNG
+  const handleExportPNG = async () => {
+    if (!exportContainerRef.current) return;
+    
+    setIsExporting(true);
+    
+    try {
+      const canvas = await html2canvas(exportContainerRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true
+      });
+      
+      const link = document.createElement('a');
+      link.download = `evolution-collectes-${modalDateFrom}-${modalDateTo}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (error) {
+      console.error("Erreur lors de l'export PNG:", error);
+      alert("Erreur lors de l'export PNG");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Fonction d'export PDF
+  const handleExportPDF = async () => {
+    if (!exportContainerRef.current) return;
+    
+    setIsExporting(true);
+    
+    try {
+      const canvas = await html2canvas(exportContainerRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+      const imgX = (pageWidth - imgWidth * ratio) / 2;
+      const imgY = 10;
+      
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      pdf.save(`evolution-collectes-${modalDateFrom}-${modalDateTo}.pdf`);
+    } catch (error) {
+      console.error("Erreur lors de l'export PDF:", error);
+      alert("Erreur lors de l'export PDF");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Initialiser les filtres internes avec tous les types disponibles
@@ -161,108 +289,6 @@ const TimeChart = () => {
     };
   };
 
-  // Rendu du graphique principal
-  const renderMainChart = () => {
-    if (chartInstanceRef.current) {
-      chartInstanceRef.current.destroy();
-    }
-
-    const chartData = buildMainChartData();
-    if (chartData.labels.length === 0 || !chartRef.current) return;
-
-    const ctx = chartRef.current.getContext("2d");
-    chartInstanceRef.current = new Chart(ctx, {
-      type: "line",
-      data: chartData,
-      options: getChartOptions(false)
-    });
-  };
-
-  // Charger les données temporelles sans dépendance aux checkboxes globales
-  const loadDefaultTemporalData = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const allAvailableTypes = Object.keys(frontendToBackendMapping);
-      
-      const filters = {
-        types: allAvailableTypes,
-        period_type: "month" // Vue principale en mois
-      };
-      
-      const result = await api.temporalAnalysis.getTemporalData(filters);
-      
-      if (result.success && result.data) {
-        const responseData = result.data.data || result.data;
-        const responseTotalByPeriod = result.data.total_by_period || {};
-        
-        setTemporalData(responseData);
-        setTotalByPeriod(responseTotalByPeriod);
-        
-        const typesWithData = Object.keys(responseData).filter(type => {
-          const typeData = responseData[type];
-          return Array.isArray(typeData) && typeData.length > 0;
-        });
-        
-        setSelectedTypes(new Set(typesWithData));
-        
-      } else {
-        setError(result.error || "Aucune donnée disponible");
-        setTemporalData({});
-        setTotalByPeriod({});
-      }
-    } catch (error) {
-      console.error("Erreur loadDefaultTemporalData:", error);
-      setError("Erreur de connexion à l'API");
-      setTemporalData({});
-      setTotalByPeriod({});
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Charger les données pour la modal (JOURS SEULEMENT)
-  const loadModalData = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Validation simple - 7 jours max
-      const validation = validateDateRange(modalDateFrom, modalDateTo);
-      if (!validation.valid) {
-        setError(validation.error);
-        setLoading(false);
-        return;
-      }
-      
-      const backendTypes = modalFilters.types.map(type => 
-        frontendToBackendMapping[type] || type
-      );
-      
-      const filters = {
-        period_type: "day", // TOUJOURS en jours dans la modal
-        types: backendTypes,
-        date_from: modalDateFrom,
-        date_to: modalDateTo
-      };
-      
-      const result = await api.temporalAnalysis.getTemporalData(filters);
-      
-      if (result.success && result.data) {
-        setTemporalData(result.data.data || {});
-        setTotalByPeriod(result.data.total_by_period || {});
-      } else {
-        setError(result.error || "Aucune donnée disponible");
-      }
-    } catch (error) {
-      console.error("Erreur loadModalData:", error);
-      setError("Erreur de connexion");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Construire les données du graphique modal
   const buildModalChartData = () => {
     const allPeriods = new Set();
@@ -283,11 +309,8 @@ const TimeChart = () => {
       return { labels: [], datasets: [] };
     }
 
-    const typesToShow = selectedTypes.size > 0 
-      ? Object.keys(temporalData).filter(type => selectedTypes.has(type))
-      : Object.keys(temporalData);
-
-    const datasets = typesToShow
+    // IMPORTANT : Toujours inclure TOUS les types (pas de filtre par selectedTypes ici)
+    const datasets = Object.keys(temporalData)
       .filter(type => Array.isArray(temporalData[type]) && temporalData[type].length > 0)
       .map(type => {
         const typeData = sortedPeriods.map(period => {
@@ -305,7 +328,7 @@ const TimeChart = () => {
           pointHoverRadius: 6,
           fill: false,
           tension: 0.3,
-          hidden: !selectedTypes.has(type)
+          hidden: !selectedTypes.has(type) // Utilise hidden au lieu de filtrer
         };
       });
 
@@ -324,16 +347,16 @@ const TimeChart = () => {
   };
 
   // Options du graphique
-  const getChartOptions = (isModal = false) => ({
+  const getChartOptions = (isModal) => ({
     responsive: true,
     maintainAspectRatio: false,
     interaction: {
-      intersect: false,
-      mode: 'index'
+      mode: 'index',
+      intersect: false
     },
     plugins: {
       legend: {
-        display: isModal,
+        display: isModal, // ✅ Réactivé
         position: 'bottom',
         labels: {
           usePointStyle: true,
@@ -350,9 +373,10 @@ const TimeChart = () => {
               })
               .map((type, index) => {
                 const isSelected = selectedTypes.has(type);
+                const labelText = typeLabels[type] || type;
                 
                 return {
-                  text: `${typeLabels[type] || type}`,
+                  text: labelText,
                   fillStyle: typeColors[type] || "#95a5a6",
                   strokeStyle: typeColors[type] || "#95a5a6",
                   pointStyle: 'circle',
@@ -413,6 +437,23 @@ const TimeChart = () => {
     }
   });
 
+  // Rendu du graphique principal
+  const renderMainChart = () => {
+    if (chartInstanceRef.current) {
+      chartInstanceRef.current.destroy();
+    }
+
+    const chartData = buildMainChartData();
+    if (chartData.labels.length === 0 || !chartRef.current) return;
+
+    const ctx = chartRef.current.getContext("2d");
+    chartInstanceRef.current = new Chart(ctx, {
+      type: "line",
+      data: chartData,
+      options: getChartOptions(false)
+    });
+  };
+
   // Rendu du graphique modal
   const renderModalChart = () => {
     if (modalChartInstanceRef.current) {
@@ -428,6 +469,94 @@ const TimeChart = () => {
       data: chartData,
       options: getChartOptions(true)
     });
+  };
+
+  // Charger les données temporelles sans dépendance aux checkboxes globales
+  const loadDefaultTemporalData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const allAvailableTypes = Object.keys(frontendToBackendMapping);
+      
+      const filters = {
+        types: allAvailableTypes,
+        period_type: "month"
+      };
+      
+      const result = await api.temporalAnalysis.getTemporalData(filters);
+      
+      if (result.success && result.data) {
+        const responseData = result.data.data || result.data;
+        const responseTotalByPeriod = result.data.total_by_period || {};
+        
+        setTemporalData(responseData);
+        setTotalByPeriod(responseTotalByPeriod);
+        
+        const typesWithData = Object.keys(responseData).filter(type => {
+          const typeData = responseData[type];
+          return Array.isArray(typeData) && typeData.length > 0;
+        });
+        
+        setSelectedTypes(new Set(typesWithData));
+        
+      } else {
+        setError(result.error || "Aucune donnée disponible");
+        setTemporalData({});
+        setTotalByPeriod({});
+      }
+    } catch (error) {
+      console.error("Erreur loadDefaultTemporalData:", error);
+      setError("Erreur de connexion à l'API");
+      setTemporalData({});
+      setTotalByPeriod({});
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Charger les données pour la modal (JOURS SEULEMENT)
+  const loadModalData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const validation = validateDateRange(modalDateFrom, modalDateTo);
+      if (!validation.valid) {
+        setError(validation.error);
+        setLoading(false);
+        return;
+      }
+      
+      const backendTypes = modalFilters.types.map(type => 
+        frontendToBackendMapping[type] || type
+      );
+      
+      const filters = {
+        period_type: "day",
+        types: backendTypes,
+        date_from: modalDateFrom,
+        date_to: modalDateTo
+      };
+      
+      const result = await api.temporalAnalysis.getTemporalData(filters);
+      
+      if (result.success && result.data) {
+        setTemporalData(result.data.data || {});
+        setTotalByPeriod(result.data.total_by_period || {});
+      } else {
+        setError(result.error || "Aucune donnée disponible");
+        setTemporalData({});
+        setTotalByPeriod({});
+      }
+    } catch (error) {
+      console.error("Erreur loadModalData:", error);
+      setError("Erreur de connexion à l'API");
+      setTemporalData({});
+      setTotalByPeriod({});
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Gestion des interactions
@@ -468,7 +597,7 @@ const TimeChart = () => {
     if (isExpanded) {
       renderModalChart();
     }
-  }, [temporalData, selectedTypes, isExpanded]);
+  }, [temporalData, selectedTypes, isExpanded]); // ✅ selectedTypes réactivé pour animations
 
   useEffect(() => {
     return () => {
@@ -480,6 +609,66 @@ const TimeChart = () => {
       }
     };
   }, [isExpanded]);
+
+  // Rendu du tableau récapitulatif
+  const renderSummaryTable = () => {
+    const { dates, tableData } = buildSummaryTableData();
+    
+    if (dates.length === 0 || tableData.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="summary-table-container">
+        <h4 className="summary-table-title">
+          <i className="fas fa-table"></i>
+          Tableau récapitulatif des collectes
+        </h4>
+        <div className="summary-table-wrapper">
+          <table className="summary-table">
+            <thead>
+              <tr>
+                <th className="type-column">Type d'infrastructure</th>
+                {dates.map(date => (
+                  <th key={date} className="date-column">{formatDate(date)}</th>
+                ))}
+                <th className="total-column">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tableData.map((row, index) => (
+                <tr key={index}>
+                  <td className="type-cell">
+                    <span 
+                      className="type-indicator" 
+                      style={{ backgroundColor: row.color }}
+                    ></span>
+                    {row.type}
+                  </td>
+                  {dates.map(date => (
+                    <td key={date} className="count-cell">
+                      {row.dates[date] || 0}
+                    </td>
+                  ))}
+                  <td className="total-cell">{row.total}</td>
+                </tr>
+              ))}
+              <tr className="total-row">
+                <td className="type-cell"><strong>Total général</strong></td>
+                {dates.map(date => {
+                  const dayTotal = tableData.reduce((sum, row) => sum + (row.dates[date] || 0), 0);
+                  return <td key={date} className="count-cell"><strong>{dayTotal}</strong></td>;
+                })}
+                <td className="total-cell">
+                  <strong>{tableData.reduce((sum, row) => sum + row.total, 0)}</strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -532,7 +721,7 @@ const TimeChart = () => {
             </div>
 
             <div className="modal-filters">
-              {/* Période d'étude - SIMPLIFIÉ */}
+              {/* Période d'étude - SIMPLIFIÉE */}
               <div className="filter-group">
                 <label>Période d'étude (7 jours maximum) :</label>
                 <div className="date-range">
@@ -595,8 +784,55 @@ const TimeChart = () => {
               </div>
             )}
 
-            <div className="modal-chart-content">
-              <canvas ref={modalChartRef}></canvas>
+            {/* Wrapper pour le contenu exportable */}
+            <div className="export-content-wrapper">
+              {/* Boutons d'export EN DEHORS du container exportable */}
+              {modalDateFrom && modalDateTo && (
+                <div className="export-controls">
+                  <div className="export-info">
+                    <i className="fas fa-info-circle"></i>
+                    <span>Cliquez pour exporter le graphique et le tableau</span>
+                  </div>
+                  <div className="export-buttons">
+                    <button 
+                      className="export-btn export-png"
+                      onClick={handleExportPNG}
+                      disabled={isExporting}
+                    >
+                      <i className="fas fa-image"></i>
+                      {isExporting ? 'Export...' : 'PNG'}
+                    </button>
+                    <button 
+                      className="export-btn export-pdf"
+                      onClick={handleExportPDF}
+                      disabled={isExporting}
+                    >
+                      <i className="fas fa-file-pdf"></i>
+                      {isExporting ? 'Export...' : 'PDF'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Container pour l'export (graphique + tableau UNIQUEMENT) */}
+              <div ref={exportContainerRef} className="export-container">
+                {/* Titre dynamique avec période */}
+                {modalDateFrom && modalDateTo && (
+                  <div className="export-header">
+                    <h3 className="export-title">
+                      Évolution des collectes du {formatDate(modalDateFrom)} au {formatDate(modalDateTo)}
+                    </h3>
+                  </div>
+                )}
+
+                {/* Graphique */}
+                <div className="modal-chart-content">
+                  <canvas ref={modalChartRef}></canvas>
+                </div>
+
+                {/* Tableau récapitulatif */}
+                {modalDateFrom && modalDateTo && renderSummaryTable()}
+              </div>
             </div>
           </div>
         </div>
