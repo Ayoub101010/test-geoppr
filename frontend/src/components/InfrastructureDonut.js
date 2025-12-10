@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import Chart from "chart.js/auto";
 import "./InfrastructureDonut.css";
-import api from "./api";
+import useInfrastructureData from "./useinfrastructuredata";
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useAuth } from './AuthContext';
@@ -13,15 +13,18 @@ const InfrastructureDonut = () => {
   const modalChartInstance = useRef(null);
   const containerRef = useRef(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  // ✅ NOUVEAU: Utiliser le hook au lieu de l'API
+  const { globalStats, loading: dataLoading, error: dataError } = useInfrastructureData();
+  
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
   const [rawStats, setRawStats] = useState({});
-  const [allStats, setAllStats] = useState({}); // Toutes les données complètes
-  const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState('categories'); // 'categories' ou 'detailed'
+  const [allStats, setAllStats] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('categories');
   const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
 
-  //  FILTRES INTÉGRÉS INDÉPENDANTS - INVISIBLES (même style qu'avant)
   const [modalFilters, setModalFilters] = useState({
     region: '',
     prefecture: '',
@@ -29,13 +32,11 @@ const InfrastructureDonut = () => {
     types: []
   });
 
-  // Fonction pour vérifier si l'utilisateur peut exporter
   const canExport = () => {
     if (!user) return false;
     return user.role === 'super_admin' || user.role === 'admin';
   };
 
-  //  MAPPING CORRECT backend vers frontend
   const backendToFrontend = {
     'pistes': 'pistes',
     'chaussees': 'chaussees',
@@ -53,7 +54,6 @@ const InfrastructureDonut = () => {
     'autres_infrastructures': 'autres'
   };
 
-  // Mapping des catégories
   const categoryMapping = {
     "Pistes": ["pistes"],
     "Chaussées": ["chaussees"],
@@ -64,7 +64,6 @@ const InfrastructureDonut = () => {
     ]
   };
 
-  // Labels français pour les types individuels
   const typeLabels = {
     pistes: "Pistes",
     chaussees: "Chaussées",
@@ -82,7 +81,6 @@ const InfrastructureDonut = () => {
     autres: "Autres infrastructures"
   };
 
-  // Couleurs pour les catégories
   const categoryColors = {
     "Pistes": "#4e73df",
     "Chaussées": "#8e44ad",
@@ -90,7 +88,6 @@ const InfrastructureDonut = () => {
     "Infrastructures rurales": "#f6c23e"
   };
 
-  // Couleurs pour les types détaillés
   const typeColors = {
     pistes: "#4e73df",
     chaussees: "#8e44ad",
@@ -108,7 +105,6 @@ const InfrastructureDonut = () => {
     autres: "#95a5a6"
   };
 
-  //  NORMALISER les données backend vers frontend
   const normalizeStats = (backendStats) => {
     const normalizedStats = {};
     
@@ -121,9 +117,7 @@ const InfrastructureDonut = () => {
     return normalizedStats;
   };
 
-  //  NOUVEAU - Récupérer les filtres INDÉPENDANTS de la modal (pas ceux de gauche)
   const getModalFilters = () => {
-    //  UTILISE LES FILTRES INTÉGRÉS DU COMPOSANT (pas ceux de gauche)
     return {
       region: modalFilters.region,
       prefecture: modalFilters.prefecture,
@@ -132,52 +126,47 @@ const InfrastructureDonut = () => {
     };
   };
 
-  //  CHARGER TOUTES LES DONNÉES UNE SEULE FOIS (optimisation performance)
-  const loadAllData = async () => {
-    setLoading(true);
-    try {
-      console.log("📊 [Donut] Chargement TOUTES les données (vue initiale - INDÉPENDANT)");
+  // ✅ MODIFIÉ: Charger depuis le hook au lieu de l'API
+  useEffect(() => {
+    if (!dataLoading && globalStats && Object.keys(globalStats).length > 0) {
+      console.log("📊 [Donut] Chargement depuis le hook (cache)");
       
-      //  AUCUN FILTRE - Récupérer TOUTES les données
-      const result = await api.statistiques.getStatsByType({});
+      const normalizedStats = normalizeStats(globalStats);
       
-      if (result.success) {
-        const backendStats = result.data;
-        const normalizedStats = normalizeStats(backendStats);
-        
-        console.log("✅ [Donut] Toutes les stats normalisées:", normalizedStats);
-        setAllStats(normalizedStats);
-        
-        // Construire la vue initiale (catégories avec TOUTES les données)
-        buildCategoryData(normalizedStats);
-      } else {
-        console.error("❌ [Donut] Erreur API:", result.error);
-        setChartData({ labels: [], datasets: [] });
-      }
-    } catch (error) {
-      console.error("💥 [Donut] Erreur lors du chargement:", error);
-      setChartData({ labels: [], datasets: [] });
-    } finally {
+      const excludedTypes = ['points_coupures', 'points_critiques'];
+      const filteredStats = {};
+      
+      Object.keys(normalizedStats).forEach(key => {
+        if (!excludedTypes.includes(key)) {
+          filteredStats[key] = normalizedStats[key];
+        }
+      });
+      
+      console.log("[Donut] Stats filtrées (sans surveillance):", filteredStats);
+      setAllStats(filteredStats);
+      buildCategoryData(filteredStats);
       setLoading(false);
     }
-  };
+    
+    if (dataError) {
+      console.error("❌ [Donut] Erreur:", dataError);
+      setLoading(false);
+    }
+  }, [globalStats, dataLoading, dataError]);
 
-  //  CHARGER DONNÉES FILTRÉES INDÉPENDANTES (pour modal seulement - optimisé)
   const loadFilteredData = async () => {
-    if (!isExpanded) return; // Seulement pour la modal
+    if (!isExpanded) return;
     
     try {
       console.log("🔍 [Donut] Application filtres modal INDÉPENDANTS");
       
-      const filters = getModalFilters(); //  UTILISE LES FILTRES INDÉPENDANTS
+      const filters = getModalFilters();
       
-      //  RÉUTILISER les données existantes si pas de filtres géographiques
       if (!filters.region && !filters.prefecture && !filters.commune_id) {
         console.log("🚀 [Donut] Réutilisation données existantes (plus rapide)");
         
         let filteredStats = { ...allStats };
         
-        // Appliquer seulement les filtres de types INDÉPENDANTS
         if (filters.types.length > 0) {
           const filtered = {};
           filters.types.forEach(type => {
@@ -193,43 +182,18 @@ const InfrastructureDonut = () => {
         return;
       }
       
-      //  SEULEMENT si filtres géographiques, faire appel API
-      setLoading(true);
-      const result = await api.statistiques.getStatsByType(filters);
+      // Note: Pour les filtres géographiques, on utilise les données existantes
+      // car on n'a plus accès à l'API directement
+      console.log("⚠️ [Donut] Filtres géographiques non supportés avec le cache");
+      setRawStats(allStats);
+      buildChartData(allStats);
       
-      if (result.success) {
-        const backendStats = result.data;
-        const normalizedStats = normalizeStats(backendStats);
-        
-        console.log("✅ [Donut] Stats filtrées normalisées:", normalizedStats);
-        setRawStats(normalizedStats);
-        
-        // Appliquer le filtrage supplémentaire si nécessaire
-        const filteredStats = {};
-        if (filters.types.length === 0) {
-          Object.assign(filteredStats, normalizedStats);
-        } else {
-          filters.types.forEach(type => {
-            if (normalizedStats[type]) {
-              filteredStats[type] = normalizedStats[type];
-            }
-          });
-        }
-        
-        buildChartData(filteredStats);
-      } else {
-        console.error("❌ [Donut] Erreur API filtres:", result.error);
-        setChartData({ labels: [], datasets: [] });
-      }
     } catch (error) {
       console.error("💥 [Donut] Erreur lors du chargement filtré:", error);
       setChartData({ labels: [], datasets: [] });
-    } finally {
-      setLoading(false);
     }
   };
 
-  //  GESTION DU CLIC SUR TOUT LE CONTENEUR (pas seulement les sections)
   const handleContainerClick = (e) => {
     if (!isExpanded) {
       console.log("🖱️ [Donut] Clic sur conteneur - Ouverture modal");
@@ -238,7 +202,6 @@ const InfrastructureDonut = () => {
     }
   };
 
-  // Construire les données du graphique
   const buildChartData = (stats) => {
     console.log(`🎯 [Donut] Mode: ${viewMode}, Stats reçues:`, stats);
     
@@ -249,7 +212,6 @@ const InfrastructureDonut = () => {
     }
   };
 
-  //  VUE PAR CATÉGORIES
   const buildCategoryData = (stats) => {
     console.log("📊 [Donut] Construction vue catégories avec:", stats);
     
@@ -289,13 +251,11 @@ const InfrastructureDonut = () => {
     });
   };
 
-  //  VUE DÉTAILLÉE
   const buildDetailedData = (stats) => {
     console.log("🔍 [Donut] Construction vue détaillée avec:", stats);
 
-    //  UTILISER LES FILTRES INDÉPENDANTS (pas ceux de gauche)
     if (isExpanded) {
-      const filters = getModalFilters(); //  INDÉPENDANT
+      const filters = getModalFilters();
       const activeStats = {};
       
       if (filters.types.length === 0) {
@@ -310,7 +270,6 @@ const InfrastructureDonut = () => {
       stats = activeStats;
     }
 
-    // Vérifier qu'on a des données
     if (Object.keys(stats).length === 0) {
       setChartData({ labels: [], datasets: [] });
       return;
@@ -333,34 +292,56 @@ const InfrastructureDonut = () => {
     });
   };
 
-  // ✅ Fonction d'export AMÉLIORÉE (haute qualité + titre + date)
   const exportChart = async (format = 'png') => {
     setIsExporting(true);
     try {
-      // Capturer seulement le contenu du graphique (sans les boutons)
       const chartElement = isExpanded 
         ? document.querySelector('.chart-expanded-content')
         : containerRef.current;
       
-      // Masquer temporairement les boutons pour ne pas les capturer
       const exportButtons = document.querySelectorAll('.chart-expanded-header button');
       exportButtons.forEach(btn => btn.style.visibility = 'hidden');
       
       const canvas = await html2canvas(chartElement, {
         backgroundColor: '#ffffff',
-        scale: 3,  // Haute qualité
+        scale: 3,
         logging: false,
         useCORS: true,
         allowTaint: true
       });
       
-      // Restaurer les boutons
       exportButtons.forEach(btn => btn.style.visibility = 'visible');
 
       if (format === 'png') {
+        const finalCanvas = document.createElement('canvas');
+        const titleHeight = 80;
+        finalCanvas.width = canvas.width;
+        finalCanvas.height = canvas.height + titleHeight;
+        
+        const ctx = finalCanvas.getContext('2d');
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+        
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Répartitions par domaine d\'infrastructure', finalCanvas.width / 2, 40);
+        
+        ctx.font = '24px Arial';
+        ctx.fillStyle = '#666666';
+        const dateStr = new Date().toLocaleDateString('fr-FR', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        ctx.fillText(`Généré le ${dateStr}`, finalCanvas.width / 2, 70);
+        
+        ctx.drawImage(canvas, 0, titleHeight);
+        
         const link = document.createElement('a');
-        link.download = `Capacite_Infrastructure_${new Date().toISOString().split('T')[0]}.png`;
-        link.href = canvas.toDataURL('image/png', 1.0);
+        link.download = `Repartitions_Infrastructure_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = finalCanvas.toDataURL('image/png', 1.0);
         link.click();
       } else if (format === 'pdf') {
         const imgData = canvas.toDataURL('image/png', 1.0);
@@ -375,12 +356,10 @@ const InfrastructureDonut = () => {
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
         
-        // ✅ AJOUTER LE TITRE
         pdf.setFontSize(16);
         pdf.setFont(undefined, 'bold');
-        pdf.text('Capacité par Domaine d\'Infrastructure', pdfWidth / 2, 15, { align: 'center' });
+        pdf.text('Répartitions par Domaine d\'Infrastructure', pdfWidth / 2, 15, { align: 'center' });
         
-        // ✅ AJOUTER LA DATE
         pdf.setFontSize(10);
         pdf.setFont(undefined, 'normal');
         const dateStr = new Date().toLocaleDateString('fr-FR', { 
@@ -390,10 +369,9 @@ const InfrastructureDonut = () => {
         });
         pdf.text(`Généré le ${dateStr}`, pdfWidth / 2, 22, { align: 'center' });
         
-        // Calculer l'espace pour le graphique
         let finalWidth, finalHeight;
         const margin = 10;
-        const topMargin = 30; // Espace pour le titre et date
+        const topMargin = 30;
         const availableHeight = pdfHeight - topMargin - margin;
         
         if (ratio > pdfWidth / availableHeight) {
@@ -408,7 +386,7 @@ const InfrastructureDonut = () => {
         const y = topMargin;
         
         pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight, undefined, 'FAST');
-        pdf.save(`Capacite_Infrastructure_${new Date().toISOString().split('T')[0]}.pdf`);
+        pdf.save(`Repartitions_Infrastructure_${new Date().toISOString().split('T')[0]}.pdf`);
       }
     } catch (error) {
       console.error('Erreur export:', error);
@@ -418,7 +396,6 @@ const InfrastructureDonut = () => {
     }
   };
 
-  // Options du graphique
   const getChartOptions = (expanded = false) => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -437,24 +414,35 @@ const InfrastructureDonut = () => {
             if (data.labels.length && data.datasets.length) {
               const dataset = data.datasets[0];
               const total = dataset.data.reduce((acc, value) => acc + value, 0);
+              const meta = chart.getDatasetMeta(0);
               
               return data.labels.map((label, i) => {
                 const value = dataset.data[i];
                 const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                const isHidden = meta.data[i] && meta.data[i].hidden;
                 
                 return {
                   text: `${label} (${value} - ${percentage}%)`,
-                  fillStyle: dataset.backgroundColor[i],
+                  fillStyle: isHidden ? '#cccccc' : dataset.backgroundColor[i],
                   strokeStyle: dataset.borderColor,
                   lineWidth: dataset.borderWidth,
-                  hidden: false,
-                  index: i
+                  hidden: isHidden,
+                  index: i,
+                  fontColor: isHidden ? '#999999' : '#2d3748'
                 };
               });
             }
             return [];
           }
         },
+        onClick: (e, legendItem, legend) => {
+          const index = legendItem.index;
+          const chart = legend.chart;
+          const meta = chart.getDatasetMeta(0);
+          
+          meta.data[index].hidden = !meta.data[index].hidden;
+          chart.update();
+        }
       },
       tooltip: {
         backgroundColor: "#ffffff",
@@ -491,7 +479,38 @@ const InfrastructureDonut = () => {
     }
   });
 
-  // Créer/mettre à jour le graphique
+  const strikethroughLegendPlugin = {
+    id: 'strikethroughLegend',
+    afterDraw: (chart) => {
+      const legend = chart.legend;
+      if (!legend || !legend.legendItems) return;
+
+      const ctx = chart.ctx;
+      const items = legend.legendItems;
+
+      items.forEach((item, index) => {
+        const meta = chart.getDatasetMeta(0);
+        if (meta.data[index] && meta.data[index].hidden) {
+          const legendX = legend.left;
+          const legendY = legend.top;
+          
+          const textX = item.text.x || (legendX + item.left);
+          const textY = item.text.y || (legendY + item.top + (item.height / 2));
+          const textWidth = ctx.measureText(item.text.text || item.text).width;
+
+          ctx.save();
+          ctx.strokeStyle = '#999999';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(textX, textY);
+          ctx.lineTo(textX + textWidth, textY);
+          ctx.stroke();
+          ctx.restore();
+        }
+      });
+    }
+  };
+
   const renderChart = () => {
     if (!isExpanded) {
       if (chartInstance.current) {
@@ -505,6 +524,7 @@ const InfrastructureDonut = () => {
         type: "doughnut",
         data: chartData,
         options: getChartOptions(false),
+        plugins: [strikethroughLegendPlugin]
       });
     } else {
       if (modalChartInstance.current) {
@@ -518,11 +538,11 @@ const InfrastructureDonut = () => {
         type: "doughnut",
         data: chartData,
         options: getChartOptions(true),
+        plugins: [strikethroughLegendPlugin]
       });
     }
   };
 
-  // Gérer la fermeture
   const handleCloseExpanded = (e) => {
     if (e.target.classList.contains('chart-overlay')) {
       console.log("❌ [Donut] Fermeture modal - Retour vue complète");
@@ -532,36 +552,26 @@ const InfrastructureDonut = () => {
     }
   };
 
-  //  EFFECTS OPTIMISÉS
-  useEffect(() => {
-    loadAllData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   useEffect(() => {
     if (isExpanded) {
       loadFilteredData();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded]);
 
   useEffect(() => {
     if (isExpanded && Object.keys(rawStats).length > 0) {
       buildChartData(rawStats);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, rawStats]);
 
   useEffect(() => {
     if (isExpanded) {
       loadFilteredData();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modalFilters]);
 
   useEffect(() => {
     renderChart();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartData, isExpanded]);
 
   useEffect(() => {

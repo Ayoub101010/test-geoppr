@@ -11,12 +11,15 @@ const MapLegend = () => {
       { 
       category: "Transport & Ouvrages",
       items: [
-        { type: "pistes", label: "Pistes", icon: "road", color: "#FF6B00", isDashed: true }, // ✅ Ajout
+        { type: "pistes", label: "Pistes", icon: "road", color: "#FF6B00", isDashed: true }, 
+        { type: "chaussees", label: "Chaussées", icon: "road", color: "#8e44ad", isLine: true }, 
         { type: "ponts", label: "Ponts", icon: "bridge", color: "#9B59B6" },
         { type: "buses", label: "Buses", icon: "dot-circle", color: "#7F8C8D" },
         { type: "dalots", label: "Dalots", icon: "water", color: "#3498DB" },
-        { type: "bacs", label: "Bacs", icon: "ship", color: "#F39C12", showIcon: true }, // ✅ Ajout
-        { type: "passages_submersibles", label: "Passages submersibles", icon: "water", color: "#1ABC9C", showIcon: true } // ✅ Ajout
+        { type: "bacs", label: "Bacs", icon: "ship", color: "#F39C12", showIcon: true }, 
+        { type: "passages_submersibles", label: "Passages submersibles", icon: "water", color: "#1ABC9C", showIcon: true },  // ⭐ VIRGULE ICI!
+        { type: "points_coupures", label: "Points de coupure", icon: "times-circle", color: "#C0392B" },      // ⭐ AJOUTER
+        { type: "points_critiques", label: "Points critiques", icon: "exclamation-triangle", color: "#D35400" }  // ⭐ AJOUTER
       ]
     },
     // Infrastructures rurales
@@ -101,59 +104,74 @@ const MapLegend = () => {
   };
 
   const createLegendIcon = (item) => {
-      // ✅ Lignes pointillées pour pistes
-      if (item.isDashed) {
-        return (
+    // ✅ Lignes pointillées pour pistes
+    if (item.isDashed) {
+      return (
+        <div 
+          className="legend-line-icon"
+          style={{ 
+            width: '30px',
+            height: '4px',
+            background: `repeating-linear-gradient(
+              to right,
+              ${item.color} 0px,
+              ${item.color} 6px,
+              transparent 6px,
+              transparent 12px
+            )`,
+            borderRadius: '2px'
+          }}
+        />
+      );
+    }
+    
+    // ⭐ AJOUTER CE BLOC - Ligne continue pour chaussées
+    if (item.isLine) {
+      return (
+        <div 
+          className="legend-line-icon"
+          style={{ 
+            width: '30px',
+            height: '4px',
+            backgroundColor: item.color,
+            borderRadius: '2px'
+          }}
+        />
+      );
+    }
+    
+    // ✅ Icône + ligne pour bacs et passages
+    if (item.showIcon) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <div 
-            className="legend-line-icon"
+            className="legend-icon"
+            style={{ backgroundColor: item.color }}
+          >
+            <i className={`fas fa-${item.icon}`}></i>
+          </div>
+          <div 
             style={{ 
-              width: '30px',
-              height: '4px',
-              background: `repeating-linear-gradient(
-                to right,
-                ${item.color} 0px,
-                ${item.color} 6px,
-                transparent 6px,
-                transparent 12px
-              )`,
-              borderRadius: '2px'
+              width: '10px',
+              height: '2px',
+              backgroundColor: item.color,
+              borderRadius: '1px'
             }}
           />
-        );
-      }
-      
-      // ✅ Icône + ligne pour bacs et passages
-      if (item.showIcon) {
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <div 
-              className="legend-icon"
-              style={{ backgroundColor: item.color }}
-            >
-              <i className={`fas fa-${item.icon}`}></i>
-            </div>
-            <div 
-              style={{ 
-                width: '10px',
-                height: '2px',
-                backgroundColor: item.color,
-                borderRadius: '1px'
-              }}
-            />
-          </div>
-        );
-      }
-    
-    // Icône normale
-    return (
-      <div 
-        className="legend-icon"
-        style={{ backgroundColor: item.color }}
-      >
-        <i className={`fas fa-${item.icon}`}></i>
-      </div>
-    );
-  };
+        </div>
+      );
+    }
+  
+  // Icône normale
+  return (
+    <div 
+      className="legend-icon"
+      style={{ backgroundColor: item.color }}
+    >
+      <i className={`fas fa-${item.icon}`}></i>
+    </div>
+  );
+};
 
   //  Fonction pour obtenir tous les types disponibles
   const getAllLegendTypes = () => {

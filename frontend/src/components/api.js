@@ -1,5 +1,6 @@
-// src/components/api.js - Version corrigée
+
 const API_BASE_URL = 'http://localhost:8000/api';
+
 
 // Cache intelligent au niveau module
 class DataCache {
@@ -23,12 +24,12 @@ class DataCache {
 
   async getCollectesData() {
     if (this.isValid()) {
-      console.log("📦 Cache valide - réutilisation des données");
+      
       return { success: true, data: this.collectesData };
     }
 
     if (this.loadingPromise) {
-      console.log("⏳ Chargement en cours - attente...");
+      
       return await this.loadingPromise;
     }
 
@@ -40,12 +41,12 @@ class DataCache {
       if (result.success) {
         this.collectesData = result.data;
         this.lastFetchTime = Date.now();
-        console.log(`✅ Cache API: ${result.data.features?.length || 0} features TOTALES chargées`);
+       
       }
 
       return result;
     } catch (error) {
-      console.error("❌ Erreur lors du chargement:", error);
+      
       return { success: false, error: error.message };
     } finally {
       this.loadingPromise = null;
@@ -91,12 +92,12 @@ class GeographyCache {
 
   async getHierarchy() {
     if (this.isValid()) {
-      console.log("🗺️ Cache hiérarchie valide - réutilisation");
+     
       return { success: true, data: this.hierarchyData };
     }
 
     if (this.loadingPromise) {
-      console.log("⏳ Chargement hiérarchie en cours - attente...");
+      
       return await this.loadingPromise;
     }
 
@@ -108,7 +109,7 @@ class GeographyCache {
       if (result.success) {
         this.hierarchyData = result.data;
         this.lastFetchTime = Date.now();
-        console.log(`✅ Cache hiérarchie créé: ${result.data.total_communes} communes`);
+        
       }
 
       return result;
@@ -145,7 +146,7 @@ const apiCall = async (endpoint, options = {}) => {
     const data = await response.json();
     return { success: true, data };
   } catch (error) {
-    console.error(`Erreur API ${endpoint}:`, error);
+    
     return { success: false, error: error.message };
   }
 };
@@ -166,7 +167,7 @@ export const geographyAPI = {
 export const statistiquesAPI = {
   getStatsByType: async (filters = {}) => {
     try {
-      console.log("📊 Calcul des statistiques...");
+      
       
       const result = await dataCache.getCollectesData();
       
@@ -183,12 +184,12 @@ export const statistiquesAPI = {
         }
       });
       
-      console.log(`📈 Statistiques calculées: ${Object.keys(stats).length} types, ${Object.values(stats).reduce((a, b) => a + b, 0)} total`);
+      
       
       return { success: true, data: stats };
       
     } catch (error) {
-      console.error('❌ Erreur calcul statistiques:', error);
+      
       return { success: false, error: error.message };
     }
   },
@@ -214,7 +215,7 @@ export const temporalAnalysisAPI = {
       
       return apiCall(`/temporal-analysis/?${params.toString()}`);
     } catch (error) {
-      console.error('Erreur API analyse temporelle:', error);
+      
       return { success: false, error: error.message };
     }
   }

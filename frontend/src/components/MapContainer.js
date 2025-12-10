@@ -8,15 +8,188 @@ import { useAuth } from './AuthContext';
 import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-import { collectesAPI } from "./api";
+import dataservice from './dataservice';
 import MapLegend from "./MapLegend";
 import "./MapContainer.css";
+import indexeddbservice from './indexeddbservice';
+import cacheservice from './cacheservice';
 
 
 // Variables globales pour empêcher les appels multiples
 let GLOBAL_DATA_CACHE = null;
 let GLOBAL_HIERARCHY_CACHE = null;
 let GLOBAL_LOADING = false;
+const getTypeLabel = (type) => {
+  const labels = {
+    'pistes': 'Piste Rurale',
+    'chaussees': 'Chaussee',
+    'ponts': 'Pont',
+    'buses': 'Buse',
+    'dalots': 'Dalot',
+    'bacs': 'Bac',
+    'passages_submersibles': 'Passage Submersible',
+    'ecoles': 'Ecole',
+    'services_santes': 'Service de Sante',
+    'marches': 'Marche',
+    'batiments_administratifs': 'Batiment Administratif',
+    'infrastructures_hydrauliques': 'Infrastructure Hydraulique',
+    'localites': 'Localite',
+    'autres_infrastructures': 'Autre Infrastructure',
+    'points_coupures': 'Point de Coupure',
+    'points_critiques': 'Point Critique'
+  };
+  return labels[type] || type;
+};
+
+const formatPopupContent = (properties) => {
+  // Champs a ignorer (IDs techniques, coordonnees, geometrie, dates systeme)
+  const ignoredFields = [
+    // IDs techniques
+    'fid', 'id', 'gid',
+    'commune_id', 'login_id', 'communes_rurales_id', 'chaussee_id',
+    'prefectures_id', 'regions_id',
+    // Geometrie
+    'geom', 'geometry', 'the_geom',
+    // Coordonnees
+    'x_origine', 'y_origine', 'x_destination', 'y_destination',
+    'x_intersection', 'y_intersection',
+    'x_debut_ch', 'y_debut_ch', 'x_fin_ch', 'y_fin_chau',
+    'x_pont', 'y_pont',
+    'x_dalot', 'y_dalot',
+    'x_buse', 'y_buse',
+    'x_debut_tr', 'y_debut_tr', 'x_fin_trav', 'y_fin_trav',
+    'x_debut_pa', 'y_debut_pa', 'x_fin_pass', 'y_fin_pass',
+    'x_ecole', 'y_ecole',
+    'x_sante', 'y_sante',
+    'x_marche', 'y_marche',
+    'x_batiment', 'y_batiment',
+    'x_infrastr', 'y_infrastr',
+    'x_localite', 'y_localite',
+    'x_autre_in', 'y_autre_in',
+    'x_point_co', 'y_point_co',
+    'x_point_cr', 'y_point_cr',
+    // Dates systeme
+    'created_at', 'updated_at'
+  ];
+  
+  // Traductions basees sur le SCHEMA REEL de la base de donnees
+  const fieldLabels = {
+    // PISTES
+    'code_piste': 'Code Piste',
+    'nom_origine_piste': 'Origine',
+    'nom_destination_piste': 'Destination',
+    'existence_intersection': 'Intersection',
+    'type_occupation': 'Type Occupation',
+    'debut_occupation': 'Debut Occupation',
+    'fin_occupation': 'Fin Occupation',
+    'largeur_emprise': 'Largeur Emprise (m)',
+    'frequence_trafic': 'Frequence Trafic',
+    'type_trafic': 'Type Trafic',
+    'travaux_realises': 'Travaux Realises',
+    'date_travaux': 'Date Travaux',
+    'entreprise': 'Entreprise',
+    'heure_debut': 'Heure Debut',
+    'heure_fin': 'Heure Fin',
+    
+    // CHAUSSEES
+    'type_chaus': 'Type Chaussee',
+    'etat_piste': 'Etat',
+    'endroit': 'Endroit',
+    
+    // PONTS
+    'situation_': 'Situation',
+    'type_pont': 'Type Pont',
+    'nom_cours_': 'Nom Cours d\'eau',
+    
+    // DALOTS
+    'situation_': 'Situation',
+    
+    // BACS
+    'type_bac': 'Type Bac',
+    'nom_cours_': 'Nom Cours d\'eau',
+    
+    // PASSAGES SUBMERSIBLES
+    'type_mater': 'Type Materiau',
+    
+    // INFRASTRUCTURES (ECOLES, SANTE, MARCHES, ETC.)
+    'nom': 'Nom',
+    'type': 'Type',
+    'date_creat': 'Date Creation',
+    
+    // POINTS COUPURES
+    'cause_coup': 'Cause Coupure',
+    
+    // POINTS CRITIQUES
+    'type_point': 'Type Point',
+    
+    // COMMUNS
+    'code_gps': 'Code GPS'
+  };
+  
+  let content = '';
+  
+  // PARCOURIR TOUS LES ATTRIBUTS DYNAMIQUEMENT
+  Object.keys(properties).forEach(key => {
+    // Ignorer les IDs techniques et la geometrie
+    if (ignoredFields.includes(key)) return;
+    
+    const value = properties[key];
+    
+    // Ignorer les valeurs vides/null
+    if (value === null || value === undefined || value === '') return;
+    
+    // Label du champ (traduit ou brut)
+    const label = fieldLabels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    
+    // Formater la valeur selon le type de champ
+    let displayValue = value;
+    
+    // Dates (formater si c'est une date)
+    if ((key.includes('date') || key === 'date_creat') && typeof value === 'string') {
+      try {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          displayValue = date.toLocaleDateString('fr-FR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+        }
+      } catch (e) {
+        // Garder la valeur originale
+      }
+    }
+    
+    // Heures (heure_debut, heure_fin)
+    if (key.includes('heure') && typeof value === 'string') {
+      displayValue = value;
+    }
+    
+    // Largeur emprise (avec unite)
+    if (key === 'largeur_emprise' && typeof value === 'number') {
+      displayValue = `${value.toFixed(2)} m`;
+    }
+    
+    // Booleens
+    if (typeof value === 'boolean') {
+      displayValue = value ? 'Oui' : 'Non';
+    }
+    
+    // Existence intersection (1 = Oui, 0 = Non)
+    if (key === 'existence_intersection') {
+      displayValue = value === 1 ? 'Oui' : 'Non';
+    }
+    
+    content += `<p style="margin: 5px 0;"><strong>${label}:</strong> ${displayValue}</p>`;
+  });
+  
+  if (content === '') {
+    content = '<p style="margin: 5px 0;"><em>Aucune information disponible</em></p>';
+  }
+  
+  return content;
+};
+
 
 const MapContainer = () => {
   const mapRef = useRef(null);
@@ -28,7 +201,7 @@ const MapContainer = () => {
   // États locaux
   const [localDataCache, setLocalDataCache] = useState(null);
   const [hierarchyData, setHierarchyData] = useState(null);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [geographicFilters, setGeographicFilters] = useState({
     region_id: '',
     prefecture_id: '',
@@ -64,6 +237,8 @@ const MapContainer = () => {
       'Dalots': { icon: 'water', color: '#3498DB' },
       'Bacs': { icon: 'ship', color: '#F39C12' },
       'Passages submersibles': { icon: 'water', color: '#1ABC9C' },
+      'Points de coupure': { icon: 'times-circle', color: '#C0392B' },        
+      'Points critiques': { icon: 'exclamation-triangle', color: '#D35400' },
       'Localités': { icon: 'home', color: '#E67E22' },
       'Écoles': { icon: 'graduation-cap', color: '#27AE60' },
       'Services de santé': { icon: 'hospital', color: '#E74C3C' },
@@ -124,6 +299,9 @@ const MapContainer = () => {
     passages_submersibles: { icon: "water", color: "#1ABC9C" },
     autres_infrastructures: { icon: "map-pin", color: "#95A5A6" },
     pistes: { icon: "road", color: "#FF6B00" },
+    chaussees: { icon: "road", color: "#8e44ad" },                          
+    points_coupures: { icon: "times-circle", color: "#C0392B" },            
+    points_critiques: { icon: "exclamation-triangle", color: "#D35400" }, 
   };
 
   const createCustomIcon = (type) => {
@@ -139,68 +317,88 @@ const MapContainer = () => {
   };
 
   // CHARGEMENT INITIAL AVEC CACHE GLOBAL
-  const loadAllDataOnce = async () => {
-    // Utiliser le cache global s'il existe ET qu'il n'est pas vide
-    if (GLOBAL_DATA_CACHE && GLOBAL_HIERARCHY_CACHE && 
-        GLOBAL_DATA_CACHE.features && GLOBAL_DATA_CACHE.features.length > 0) {
-      console.log("📦 Utilisation du cache global existant");
+ const loadAllDataOnce = async () => {
+  // 1️⃣ VÉRIFIER LE CACHE GLOBAL D'ABORD (survit au refresh de React)
+  if (GLOBAL_DATA_CACHE && GLOBAL_HIERARCHY_CACHE && 
+      GLOBAL_DATA_CACHE.features && GLOBAL_DATA_CACHE.features.length > 0) {
+    console.log("📦 Utilisation du cache global existant (pas de chargement)");
+    setLocalDataCache(GLOBAL_DATA_CACHE);
+    setHierarchyData(GLOBAL_HIERARCHY_CACHE);
+    setIsInitialLoading(false); // ✅ PAS DE "Chargement..."
+    return;
+  }
+  
+  // 2️⃣ Si un autre composant est en train de charger, attendre
+  if (GLOBAL_LOADING) {
+    console.log("⏳ Chargement en cours par un autre composant...");
+    setIsInitialLoading(true); // ✅ Afficher "Chargement..."
+    return;
+  }
+  
+  GLOBAL_LOADING = true;
+  setIsInitialLoading(true); // ✅ Afficher "Chargement..."
+  
+  try {
+    // 3️⃣ VÉRIFIER IndexedDB ENSUITE
+    console.log("🔍 Verification IndexedDB...");
+    const cachedMapData = await indexeddbservice.get('infrastructure', 'map_data');
+    const cachedHierarchy = await indexeddbservice.get('infrastructure', 'hierarchy');
+    
+    if (cachedMapData && cachedHierarchy && 
+        cachedMapData.features && cachedMapData.features.length > 0) {
+      console.log("✅ Utilisation cache IndexedDB pour la carte");
+      
+      // ✅ SAUVEGARDER dans les variables GLOBALES
+      GLOBAL_DATA_CACHE = cachedMapData;
+      GLOBAL_HIERARCHY_CACHE = cachedHierarchy;
+      
       setLocalDataCache(GLOBAL_DATA_CACHE);
       setHierarchyData(GLOBAL_HIERARCHY_CACHE);
       setIsInitialLoading(false);
+      GLOBAL_LOADING = false;
       return;
     }
     
-    // Si le cache existe déjà localement, l'utiliser aussi
-    if (localDataCache && hierarchyData && 
-        localDataCache.features && localDataCache.features.length > 0) {
-      console.log("📦 Données déjà présentes localement");
-      setIsInitialLoading(false);
-      return;
-    }
-    
-    // Si un autre composant est en train de charger, attendre
-    if (GLOBAL_LOADING) {
-      console.log("⏳ Chargement en cours par un autre composant...");
-      return;
-    }
-    
-    GLOBAL_LOADING = true;
-    setIsInitialLoading(true);
-    console.log("🔄 Chargement UNIQUE des données et hiérarchie...");
-    
-    try {
-      // Chargement parallèle des données et de la hiérarchie
-      const [dataResult, hierarchyResponse] = await Promise.all([
-        collectesAPI.getAll(), //  CORRECT - Sans paramètre
-        fetch('http://localhost:8000/api/geography/hierarchy/')
-      ]);
+    // 4️⃣ Charger depuis API si pas de cache
+    // 4️⃣ Charger depuis API si pas de cache
+    console.log("📡 Chargement des donnees depuis API...");
+    const [dataResult, hierarchyResponse] = await Promise.all([
+      dataservice.loadAllInfrastructures(),  // ✅ Utilise les 14 endpoints individuels
+      fetch('http://localhost:8000/api/geography/hierarchy/')
+    ]);
+
+    const hierarchyJson = await hierarchyResponse.json();
+
+    if (dataResult.success && dataResult.data) {  // ✅ Juste .data (pas .features)
+      GLOBAL_DATA_CACHE = dataResult.data;
+      setLocalDataCache(GLOBAL_DATA_CACHE);
       
-      const hierarchyJson = await hierarchyResponse.json();
-      
-      if (dataResult.success && dataResult.data?.features) {
-        GLOBAL_DATA_CACHE = dataResult.data;
-        setLocalDataCache(GLOBAL_DATA_CACHE);
-        console.log(` Cache global créé: ${dataResult.data.features.length} features`);
-      } else {
-        GLOBAL_DATA_CACHE = { features: [] };
-        setLocalDataCache(GLOBAL_DATA_CACHE);
-      }
-      
-      if (hierarchyJson.success) {
-        GLOBAL_HIERARCHY_CACHE = hierarchyJson.hierarchy;
-        setHierarchyData(GLOBAL_HIERARCHY_CACHE);
-        console.log(` Cache hiérarchie créé: ${hierarchyJson.total_communes} communes`);
-      }
-      
-    } catch (err) {
-      console.error('❌ Erreur chargement:', err);
+      // ✅ SAUVEGARDER dans IndexedDB
+      await indexeddbservice.save('infrastructure', 'map_data', GLOBAL_DATA_CACHE);
+      console.log(`💾 Cache global cree: ${dataResult.data.features.length} features`);
+    } else {
       GLOBAL_DATA_CACHE = { features: [] };
       setLocalDataCache(GLOBAL_DATA_CACHE);
-    } finally {
-      setIsInitialLoading(false);
-      GLOBAL_LOADING = false;
     }
-  };
+    
+    if (hierarchyJson.success) {
+      GLOBAL_HIERARCHY_CACHE = hierarchyJson.hierarchy;
+      setHierarchyData(GLOBAL_HIERARCHY_CACHE);
+      
+      // ✅ SAUVEGARDER dans IndexedDB
+      await indexeddbservice.save('infrastructure', 'hierarchy', GLOBAL_HIERARCHY_CACHE);
+      console.log(`💾 Cache hierarchie cree: ${hierarchyJson.total_communes} communes`);
+    }
+    
+  } catch (err) {
+    console.error('❌ Erreur chargement:', err);
+    GLOBAL_DATA_CACHE = { features: [] };
+    setLocalDataCache(GLOBAL_DATA_CACHE);
+  } finally {
+    setIsInitialLoading(false);
+    GLOBAL_LOADING = false;
+  }
+};
 
   // CALCULER LES COMMUNES CIBLES SELON FILTRES HIÉRARCHIQUES
   const getTargetCommunes = () => {
@@ -397,16 +595,15 @@ const MapContainer = () => {
           const [lng, lat] = coordinates;
           visibleCount++;
 
+         const config = iconConfig[properties.type] || iconConfig.autres_infrastructures;
           const marker = L.marker([lat, lng], {
             icon: createCustomIcon(properties.type),
           }).bindPopup(`
-            <div style="padding: 12px; min-width: 200px;">
-              <h4 style="margin: 0 0 10px 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;">
-                Infrastructure
+            <div style="padding: 15px; min-width: 250px; max-width: 400px; font-family: Arial, sans-serif;">
+              <h4 style="margin: 0 0 12px 0; color: #2c3e50; border-bottom: 2px solid ${config.color}; padding-bottom: 6px;">
+                ${getTypeLabel(properties.type)}
               </h4>
-              <p style="margin: 5px 0;"><strong>Type:</strong> ${properties.type || 'N/A'}</p>
-              <p style="margin: 5px 0;"><strong>ID:</strong> ${properties.fid || 'N/A'}</p>
-              <p style="margin: 5px 0;"><strong>Commune ID:</strong> ${properties.commune_id || 'N/A'}</p>
+              ${formatPopupContent(properties)}
             </div>
           `);
           
@@ -436,18 +633,18 @@ const MapContainer = () => {
             const isPiste = properties.type === "pistes";
             const isBacOrPassage = properties.type === 'bacs' || properties.type === 'passages_submersibles';
             
+            const lineConfig = iconConfig[properties.type] || iconConfig.autres_infrastructures;
             const polyline = L.polyline(lineCoords, {
               color: iconConfig[properties.type]?.color || "#000",
               weight: isPiste ? 3 : 4,
               opacity: 0.8,
-              dashArray: isPiste ? '10, 10' : null, //  Ligne pointillée pour pistes
+              dashArray: isPiste ? '10, 10' : null,
             }).bindPopup(`
-              <div style="padding: 12px; min-width: 200px;">
-                <h4 style="margin: 0 0 10px 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;">
-                  Infrastructure linéaire
+              <div style="padding: 15px; min-width: 250px; max-width: 400px; font-family: Arial, sans-serif;">
+                <h4 style="margin: 0 0 12px 0; color: #2c3e50; border-bottom: 2px solid ${lineConfig.color}; padding-bottom: 6px;">
+                  ${getTypeLabel(properties.type)}
                 </h4>
-                <p style="margin: 5px 0;"><strong>Type:</strong> ${properties.type || 'N/A'}</p>
-                <p style="margin: 5px 0;"><strong>Commune ID:</strong> ${properties.commune_id || 'N/A'}</p>
+                ${formatPopupContent(properties)}
               </div>
             `);
             
@@ -457,17 +654,16 @@ const MapContainer = () => {
     if (isBacOrPassage) {
       const [firstLat, firstLng] = lineCoords[0];
       
+      const iconConfig2 = iconConfig[properties.type] || iconConfig.autres_infrastructures;
       const iconMarker = L.marker([firstLat, firstLng], {
         icon: createCustomIcon(properties.type),
         zIndexOffset: 1000
       }).bindPopup(`
-        <div style="padding: 12px; min-width: 200px;">
-          <h4 style="margin: 0 0 10px 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;">
-            ${properties.type === 'bacs' ? 'Bac' : 'Passage submersible'}
+        <div style="padding: 15px; min-width: 250px; max-width: 400px; font-family: Arial, sans-serif;">
+          <h4 style="margin: 0 0 12px 0; color: #2c3e50; border-bottom: 2px solid ${iconConfig2.color}; padding-bottom: 6px;">
+            ${getTypeLabel(properties.type)}
           </h4>
-          <p style="margin: 5px 0;"><strong>Type:</strong> ${properties.type || 'N/A'}</p>
-          <p style="margin: 5px 0;"><strong>ID:</strong> ${properties.fid || properties.id || 'N/A'}</p>
-          <p style="margin: 5px 0;"><strong>Commune ID:</strong> ${properties.commune_id || 'N/A'}</p>
+          ${formatPopupContent(properties)}
         </div>
       `);
       
@@ -650,6 +846,7 @@ const MapContainer = () => {
 
       const legendItems = [
         { label: 'Pistes', color: '#FF6B00', type: 'dashed' },
+        { label: 'Chaussées', color: '#8e44ad', type: 'line' },
         { label: 'Ponts', color: '#9B59B6', type: 'circle' },
         { label: 'Buses', color: '#7F8C8D', type: 'circle' },
         { label: 'Dalots', color: '#3498DB', type: 'circle' },
@@ -661,7 +858,10 @@ const MapContainer = () => {
         { label: 'Marchés', color: '#F1C40F', type: 'circle' },
         { label: 'Bât. administratifs', color: '#34495E', type: 'circle' },
         { label: 'Infra. hydrauliques', color: '#3498DB', type: 'circle' },
-        { label: 'Autres infrastructures', color: '#95A5A6', type: 'circle' }
+        { label: 'Autres infrastructures', color: '#95A5A6', type: 'circle' },
+        
+        { label: 'Points de coupure', color: '#C0392B', type: 'circle' },
+        { label: 'Points critiques', color: '#D35400', type: 'circle' },
       ];
 
       let iconCanvasMap = iconCacheRef.current;
@@ -671,7 +871,7 @@ const MapContainer = () => {
       }
 
       let yPos = legendY + 85;
-      const lineHeight = 45;
+      const lineHeight = 35;
 
       ctx.textAlign = 'left';
       ctx.font = '18px Arial, sans-serif';
@@ -694,7 +894,18 @@ const MapContainer = () => {
           if (iconCanvas) {
             ctx.drawImage(iconCanvas, centerX - 16, centerY - 16, 32, 32);
           }
+          else if (item.type === 'line') {
+            // Ligne continue pour les chaussées
+            ctx.strokeStyle = item.color;
+            ctx.lineWidth = 6;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(legendX + 20, yPos - 3);
+            ctx.lineTo(legendX + 70, yPos - 3);
+            ctx.stroke();
+          }
         }
+        
         
         ctx.fillStyle = '#2c3e50';
         ctx.textBaseline = 'middle';
@@ -925,18 +1136,19 @@ const baseLayers = {
   })
 };
 
-// ✅ COUCHE PAR DÉFAUT (OpenStreetMap)
+//  COUCHE PAR DÉFAUT (OpenStreetMap)
 baseLayers["OpenStreetMap"].addTo(map);
 
-// ✅ SÉLECTEUR DE COUCHES
+//  SÉLECTEUR DE COUCHES
 L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
 
-    //  NOUVEAU : Créer un cluster pour chaque type d'infrastructure
     const allTypes = [
-      'services_santes', 'bacs', 'ponts', 'buses', 'dalots', 'ecoles',
-      'marches', 'batiments_administratifs', 'infrastructures_hydrauliques',
-      'localites', 'passages_submersibles', 'autres_infrastructures'
-    ];
+  'services_santes', 'bacs', 'ponts', 'buses', 'dalots', 'ecoles',
+  'marches', 'batiments_administratifs', 'infrastructures_hydrauliques',
+  'localites', 'passages_submersibles', 'autres_infrastructures',
+  'points_coupures',    
+  'points_critiques'    
+];
 
     const markerLayersByType = {};
     
@@ -1201,9 +1413,9 @@ L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
           zIndex: 1000,
           textAlign: 'center'
         }}>
-          <div>🔄 Chargement unique des données...</div>
+          <div> Chargement des données...</div>
           <div style={{fontSize: '12px', marginTop: '10px', color: '#666'}}>
-            {localDataCache ? 'Données en cache' : 'Premier chargement'}
+            {localDataCache ? 'Données en cache' : ''}
           </div>
         </div>
       )}

@@ -1,5 +1,3 @@
-
-
 from rest_framework import serializers # type: ignore
 from rest_framework_gis.serializers import GeoFeatureModelSerializer # type: ignore
 from rest_framework_gis.fields import GeometryField # type: ignore
@@ -170,17 +168,17 @@ class PisteWriteSerializer(GeoFeatureModelSerializer):
 
 
 class PisteReadSerializer(GeoFeatureModelSerializer):
-    geom_4326 = GeometryField(read_only=True)
+    geom = GeometryField(read_only=True)
 
     class Meta:
         model = Piste
-        geo_field = "geom_4326"
-        exclude = ("geom",)
+        geo_field = "geom"
+        fields = '__all__'
 
 class PisteWebSerializer(GeoFeatureModelSerializer):
     """Serializer ultra-léger pour web"""
     
-    geom_4326 = GeometryField(read_only=True)
+    geom = GeometryField(read_only=True)
     utilisateur = serializers.SerializerMethodField()
     date = serializers.SerializerMethodField()  # Calculé depuis created_at
     
@@ -197,7 +195,7 @@ class PisteWebSerializer(GeoFeatureModelSerializer):
     
     class Meta:
         model = Piste
-        geo_field = "geom_4326"
+        geo_field = "geom"
         fields = [
             'id',
             'code_piste',
@@ -205,7 +203,7 @@ class PisteWebSerializer(GeoFeatureModelSerializer):
             'utilisateur',
             'nom_origine_piste',
             'nom_destination_piste',
-            'geom_4326',
+            'geom',
         ]
 
 
@@ -529,16 +527,48 @@ class PisteDashboardSerializer(serializers.Serializer):
             return obj.communes_rurales_id.nom
         return "N/A"
     
-    def get_kilometrage(self, obj):  # ← CORRECTION ICI
-        """Arrondir à 2 décimales"""
-        km = getattr(obj, 'kilometrage', 0)
-        if km:
-            return round(float(km), 2)
-        return 0
+    def get_kilometrage(self, obj):
+        """Calculer la longueur exacte de la piste en km en transformant le SRID en métrique"""
+        if not obj.geom:
+            return 0
+        
+        try:
+            # Transformer la géométrie de 4326 vers 32628 (UTM Zone 28N)
+            geom_utm = obj.geom.transform(32628, clone=True)
+            length_m = geom_utm.length  # longueur en mètres
+            length_km = round(length_m / 1000, 2)  # conversion en km
+            return length_km
+        except Exception as e:
+            print(f"⚠️ Erreur calcul longueur piste {obj.id}: {e}")
+            return 0
+
     
     def get_infrastructures_par_type(self, obj):
         """Retourner les compteurs déjà calculés par annotate()"""
+        
+        # ⭐ CHAUSSÉES avec compteur ET kilométrage
+        chaussees_qs = Chaussees.objects.filter(code_piste=obj)
+        chaussees_count = chaussees_qs.count()
+        
+        # Calculer la longueur totale en mètres
+        total_length_m = 0
+        for chaussee in chaussees_qs:
+            if chaussee.geom:
+                try:
+                    # Transformer en SRID 32628 (UTM Zone 28N pour Guinée)
+                    geom_utm = chaussee.geom.transform(32628, clone=True)
+                    total_length_m += geom_utm.length  # longueur en mètres
+                except Exception as e:
+                    print(f"⚠️ Erreur calcul longueur chaussée {chaussee.fid}: {e}")
+                    continue
+        
+        chaussees_km = round(total_length_m / 1000, 2)  # conversion en km
+        
         return {
+            'Chaussées': {
+                'count': chaussees_count,
+                'km': chaussees_km
+            },
             'Buses': getattr(obj, 'nb_buses', 0),
             'Ponts': getattr(obj, 'nb_ponts', 0),
             'Dalots': getattr(obj, 'nb_dalots', 0),
@@ -552,5 +582,3 @@ class PisteDashboardSerializer(serializers.Serializer):
             'Localités': getattr(obj, 'nb_localites', 0),
             'Passages Submersibles': getattr(obj, 'nb_passages_submersibles', 0)
         }
-
-

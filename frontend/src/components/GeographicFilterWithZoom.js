@@ -1,4 +1,4 @@
-// src/components/GeographicFilterWithZoom.js - VERSION OPTIMISÉE SANS APPELS API
+
 import React, { useState, useEffect, useRef } from 'react';
 import './GeographicFilter.css';
 import api from './api';

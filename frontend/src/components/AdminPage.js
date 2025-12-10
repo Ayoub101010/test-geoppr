@@ -1,4 +1,4 @@
-// src/components/AdminPage.js
+
 import React, { useEffect, useState, useRef } from "react";
 import geoLogo from "../assets/GeoPPR_Logo.png";
 import "leaflet/dist/leaflet.css";
@@ -42,7 +42,7 @@ const AdminPage = () => {
           role: userData.role || "admin"
         };
       } catch (e) {
-        console.error('Erreur parsing user:', e);
+        
       }
     }
     
@@ -227,7 +227,28 @@ const AdminPage = () => {
               ))}
             </div>
           </div>
-        </div>
+          <div className="filter-section">
+            <div className="filter-title">
+              <i className="fas fa-exclamation-triangle"></i> Surveillance
+            </div>
+            <div className="filter-checkbox-group">
+              {[
+                ["points_coupures", "Points de coupure"],
+                ["points_critiques", "Points critiques"],
+              ].map(([id, label]) => (
+                <div className="checkbox-item" key={id}>
+                  <input 
+                    type="checkbox" 
+                    id={id}
+                    defaultChecked
+                  />
+                  <label htmlFor={id}>{label}</label>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>  
+        
 
         {/* Carte */}
         <div className="map-container">

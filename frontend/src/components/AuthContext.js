@@ -1,5 +1,3 @@
-// src/components/AuthContext.js
-// ⚠️ REMPLACER TOUT LE CONTENU DU FICHIER PAR CECI
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import authService from './authService';
@@ -42,7 +40,7 @@ export const AuthProvider = ({ children }) => {
         handleLogout();
       }
     } catch (error) {
-      console.error('❌ Erreur vérification auth:', error);
+      
       handleLogout();
     } finally {
       setLoading(false);

@@ -1,5 +1,3 @@
-
-
 from django.shortcuts import render # type: ignore
 from rest_framework.views import APIView # type: ignore
 from rest_framework.response import Response # type: ignore
@@ -214,6 +212,7 @@ class UserManagementAPIView(APIView):
 # ==================== PISTES ====================
 
 class PisteListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     """Vue unifiee pour les pistes
     Accepte commune_id OU communes_rurales_id pour filtrage"""
     
@@ -223,7 +222,7 @@ class PisteListCreateAPIView(generics.ListCreateAPIView):
                      self.request.query_params.get('communes_rurales_id')
         if commune_id:
             qs = qs.filter(communes_rurales_id=commune_id)
-        return qs.annotate(geom_4326=Transform('geom', 4326))
+        return qs
     
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -233,28 +232,17 @@ class PisteListCreateAPIView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         serializer.save()
     
+from django.contrib.gis.db.models.functions import Length
+
 class PisteWebListAPIView(generics.ListAPIView):
-    """
-    Endpoint pour dashboard - SANS PAGINATION (comme ancien backend)
-    1 seule requête SQL optimisée avec Count()
-    """
-    
     serializer_class = PisteDashboardSerializer
     pagination_class = None  
-    
+
     def get_queryset(self):
-        """
-        Même logique que l'ancien backend web!
-        Utilise Count() avec relations code_piste
-        """
         return Piste.objects.select_related(
             'login_id',
             'communes_rurales_id'
         ).annotate(
-            # Calcul kilométrage (transformé en WGS84 puis en km)
-            kilometrage=Length(Transform('geom', 3857)) / 1000,
-            
-            # ✅ COMPTAGE via code_piste (comme ancien backend)
             nb_buses=Count('buses', filter=Q(buses__code_piste__isnull=False)),
             nb_ponts=Count('ponts', filter=Q(ponts__code_piste__isnull=False)),
             nb_dalots=Count('dalots', filter=Q(dalots__code_piste__isnull=False)),
@@ -268,9 +256,13 @@ class PisteWebListAPIView(generics.ListAPIView):
             nb_localites=Count('localites', filter=Q(localites__code_piste__isnull=False)),
             nb_passages_submersibles=Count('passagessubmersibles', filter=Q(passagessubmersibles__code_piste__isnull=False))
         ).order_by('-created_at')
+
+
+
 # ==================== CHAUSSEES ====================
 
 class ChausseesListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = ChausseesSerializer
 
     def get_queryset(self):
@@ -289,6 +281,7 @@ class ChausseesListCreateAPIView(generics.ListCreateAPIView):
 # ==================== POINTS ====================
 
 class PointsCoupuresListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = PointsCoupuresSerializer
 
     def get_queryset(self):
@@ -303,6 +296,7 @@ class PointsCoupuresListCreateAPIView(generics.ListCreateAPIView):
 
 
 class PointsCritiquesListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = PointsCritiquesSerializer
 
     def get_queryset(self):
@@ -319,6 +313,7 @@ class PointsCritiquesListCreateAPIView(generics.ListCreateAPIView):
 # ==================== INFRASTRUCTURES ====================
 
 class ServicesSantesListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = ServicesSantesSerializer
     
     def get_queryset(self):
@@ -330,6 +325,7 @@ class ServicesSantesListCreateAPIView(generics.ListCreateAPIView):
 
 
 class AutresInfrastructuresListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = AutresInfrastructuresSerializer
     
     def get_queryset(self):
@@ -341,6 +337,7 @@ class AutresInfrastructuresListCreateAPIView(generics.ListCreateAPIView):
 
 
 class BacsListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = BacsSerializer
     
     def get_queryset(self):
@@ -352,6 +349,7 @@ class BacsListCreateAPIView(generics.ListCreateAPIView):
 
 
 class BatimentsAdministratifsListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = BatimentsAdministratifsSerializer
     
     def get_queryset(self):
@@ -363,6 +361,7 @@ class BatimentsAdministratifsListCreateAPIView(generics.ListCreateAPIView):
 
 
 class BusesListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = BusesSerializer
     
     def get_queryset(self):
@@ -374,6 +373,7 @@ class BusesListCreateAPIView(generics.ListCreateAPIView):
 
 
 class DalotsListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = DalotsSerializer
     
     def get_queryset(self):
@@ -385,6 +385,7 @@ class DalotsListCreateAPIView(generics.ListCreateAPIView):
 
 
 class EcolesListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = EcolesSerializer
     
     def get_queryset(self):
@@ -396,6 +397,7 @@ class EcolesListCreateAPIView(generics.ListCreateAPIView):
 
 
 class InfrastructuresHydrauliquesListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = InfrastructuresHydrauliquesSerializer
     
     def get_queryset(self):
@@ -407,6 +409,7 @@ class InfrastructuresHydrauliquesListCreateAPIView(generics.ListCreateAPIView):
 
 
 class LocalitesListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = LocalitesSerializer
     
     def get_queryset(self):
@@ -418,6 +421,7 @@ class LocalitesListCreateAPIView(generics.ListCreateAPIView):
 
 
 class MarchesListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = MarchesSerializer
     
     def get_queryset(self):
@@ -429,6 +433,7 @@ class MarchesListCreateAPIView(generics.ListCreateAPIView):
 
 
 class PassagesSubmersiblesListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = PassagesSubmersiblesSerializer
     
     def get_queryset(self):
@@ -440,6 +445,7 @@ class PassagesSubmersiblesListCreateAPIView(generics.ListCreateAPIView):
 
 
 class PontsListCreateAPIView(generics.ListCreateAPIView):
+    pagination_class = None  # Désactiver la pagination
     serializer_class = PontsSerializer
     
     def get_queryset(self):

@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import TimeChart from "./TimeChart";
 import InfrastructureDonut from "./InfrastructureDonut";
-import RadarChartComponent from "./RadarChart";
+
 import BarChart from "./BarChart";
 import MapContainer from "./MapContainer";
 import Dashboard from "./DashBoard";
@@ -295,8 +295,29 @@ const SuperAdminPage = () => {
               ))}
             </div>
           </div>
+          <div className="filter-section">
+            <div className="filter-title">
+              <i className="fas fa-exclamation-triangle"></i> Surveillance
+            </div>
+            <div className="filter-checkbox-group">
+              {[
+                ["points_coupures", "Points de coupure"],
+                ["points_critiques", "Points critiques"],
+              ].map(([id, label]) => (
+                <div className="checkbox-item" key={id}>
+                  <input 
+                    type="checkbox" 
+                    id={id}
+                    defaultChecked
+                  />
+                  <label htmlFor={id}>{label}</label>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>  
 
-        </div>
+        
 
         {/* Contenu principal */}
         <div className="map-container">

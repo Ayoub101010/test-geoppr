@@ -703,9 +703,7 @@ const TimeChart = () => {
             style={{ cursor: 'pointer' }}
           >
             <canvas ref={chartRef}></canvas>
-            <div className="chart-hint">
-              Cliquer pour analyse détaillée
-            </div>
+            
           </div>
         )}
       </div>

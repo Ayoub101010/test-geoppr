@@ -15,7 +15,7 @@ const CommuneSelector = ({ selectedCommune, onCommuneSelect }) => {
 
     setLoading(true);
     try {
-      console.log(`Recherche communes: "${query}"`);
+      
       
       // Utiliser l'API communes_rurales avec filtre q
      const response = await fetch(`http://localhost:8000/api/communes/search/?q=${encodeURIComponent(query)}`);
@@ -25,19 +25,18 @@ const CommuneSelector = ({ selectedCommune, onCommuneSelect }) => {
       }
       
       const data = await response.json();
-      console.log('📋 Données reçues:', data);
-      console.log('📋 Type de data.communes:', typeof data.communes, Array.isArray(data.communes));
+      
 
       if (data.communes && Array.isArray(data.communes)) {
-        console.log(`✅ ${data.communes.length} communes trouvées`);
+        
         setCommunes(data.communes);
       } else {
-        console.log('❌ Pas de communes dans la réponse');
+       
         setCommunes([]);
       }
       
     } catch (error) {
-      console.error('Erreur recherche communes:', error);
+      
       setCommunes([]);
     } finally {
       setLoading(false);
@@ -77,7 +76,7 @@ const CommuneSelector = ({ selectedCommune, onCommuneSelect }) => {
   };
 
   const handleCommuneSelect = (commune) => {
-    console.log('Commune sélectionnée:', commune);
+    
     setSelectedCommuneData(commune);
     setSearchTerm(commune.nom);
     onCommuneSelect(commune.id);

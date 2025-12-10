@@ -6,7 +6,7 @@ import "@fortawesome/fontawesome-free/css/all.min.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 
-// ✅ Ajouter les styles globaux pour éliminer le scroll
+
 const globalStyles = `
   html, body {
     margin: 0;
@@ -30,7 +30,7 @@ const globalStyles = `
   }
 `;
 
-// ✅ Injecter les styles dans le head
+//  Injecter les styles dans le head
 const style = document.createElement('style');
 style.textContent = globalStyles;
 document.head.appendChild(style);

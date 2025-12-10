@@ -12,7 +12,7 @@ import {
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import "./BarChart.css";
-import api from "./api";
+import useInfrastructureData from "./useinfrastructuredata";
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useAuth } from './AuthContext';
@@ -25,7 +25,6 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend
-  // PAS de ChartDataLabels ici - il sera ajouté localement
 );
 
 // ✅ Désactiver animations en dev pour éviter conflits hot-reload
@@ -42,9 +41,11 @@ const BarChart = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
   const [allStats, setAllStats] = useState({});
-  const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
+  
+  // ✅ NOUVEAU: Utiliser le hook au lieu de l'API
+  const { globalStats, loading, error: dataError } = useInfrastructureData();
   
   const [modalFilters, setModalFilters] = useState({
     selectedTypes: new Set()
@@ -97,36 +98,28 @@ const BarChart = () => {
       normalizedStats[frontendKey] = backendStats[backendKey];
     });
     
-    console.log("🔄 [BarChart] Stats normalisées:", normalizedStats);
     return normalizedStats;
   };
 
-  const loadAllData = async () => {
-    setLoading(true);
-    try {
-      console.log("📊 [BarChart] Chargement TOUTES les données (vue initiale - INDÉPENDANT)");
+  // ✅ MODIFIÉ: Utiliser globalStats au lieu d'appeler l'API
+  useEffect(() => {
+    if (!loading && globalStats && Object.keys(globalStats).length > 0) {
+      const normalizedStats = normalizeStats(globalStats);
       
-      const result = await api.statistiques.getStatsByType({});
+      // Exclure les points de surveillance
+      const excludedTypes = ['points_coupures', 'points_critiques'];
+      const filteredStats = {};
       
-      if (result.success) {
-        const backendStats = result.data;
-        const normalizedStats = normalizeStats(backendStats);
-        
-        console.log("✅ [BarChart] Toutes les stats normalisées:", normalizedStats);
-        setAllStats(normalizedStats);
-        
-        buildChartData(normalizedStats);
-      } else {
-        console.error("❌ [BarChart] Erreur API:", result.error);
-        setChartData({ labels: [], datasets: [] });
-      }
-    } catch (error) {
-      console.error("💥 [BarChart] Erreur lors du chargement:", error);
-      setChartData({ labels: [], datasets: [] });
-    } finally {
-      setLoading(false);
+      Object.keys(normalizedStats).forEach(key => {
+        if (!excludedTypes.includes(key)) {
+          filteredStats[key] = normalizedStats[key];
+        }
+      });
+      
+      setAllStats(filteredStats);
+      buildChartData(filteredStats);
     }
-  };
+  }, [globalStats, loading]);
 
   const applyModalFilters = () => {
     let filteredStats = { ...allStats };
@@ -141,7 +134,6 @@ const BarChart = () => {
       filteredStats = filtered;
     }
 
-    console.log("🔍 [BarChart] Stats filtrées par modal INDÉPENDANT:", filteredStats);
     buildChartData(filteredStats);
   };
 
@@ -187,9 +179,35 @@ const BarChart = () => {
       exportButtons.forEach(btn => btn.style.visibility = 'visible');
 
       if (format === 'png') {
+        const finalCanvas = document.createElement('canvas');
+        const titleHeight = 80;
+        finalCanvas.width = canvas.width;
+        finalCanvas.height = canvas.height + titleHeight;
+        
+        const ctx = finalCanvas.getContext('2d');
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+        
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(' Collectes par type d\'infrastructure', finalCanvas.width / 2, 40);
+        
+        ctx.font = '24px Arial';
+        ctx.fillStyle = '#666666';
+        const dateStr = new Date().toLocaleDateString('fr-FR', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        ctx.fillText(`Généré le ${dateStr}`, finalCanvas.width / 2, 70);
+        
+        ctx.drawImage(canvas, 0, titleHeight);
+        
         const link = document.createElement('a');
         link.download = `Collectes_Infrastructure_${new Date().toISOString().split('T')[0]}.png`;
-        link.href = canvas.toDataURL('image/png', 1.0);
+        link.href = finalCanvas.toDataURL('image/png', 1.0);
         link.click();
       } else if (format === 'pdf') {
         const imgData = canvas.toDataURL('image/png', 1.0);
@@ -206,7 +224,7 @@ const BarChart = () => {
         
         pdf.setFontSize(16);
         pdf.setFont(undefined, 'bold');
-        pdf.text('📊 Collectes par type d\'infrastructure', pdfWidth / 2, 15, { align: 'center' });
+        pdf.text(' Collectes par type d\'infrastructure', pdfWidth / 2, 15, { align: 'center' });
         
         pdf.setFontSize(10);
         pdf.setFont(undefined, 'normal');
@@ -237,7 +255,6 @@ const BarChart = () => {
         pdf.save(`Collectes_Infrastructure_${new Date().toISOString().split('T')[0]}.pdf`);
       }
     } catch (error) {
-      console.error('Erreur export:', error);
       alert('Erreur lors de l\'export. Veuillez réessayer.');
     } finally {
       setIsExporting(false);
@@ -245,8 +262,6 @@ const BarChart = () => {
   };
 
   const buildChartData = (stats) => {
-    console.log("📊 [BarChart] Construction avec:", stats);
-
     if (Object.keys(stats).length === 0) {
       setChartData({ labels: [], datasets: [] });
       return;
@@ -269,13 +284,10 @@ const BarChart = () => {
         },
       ],
     });
-
-    console.log("🎨 [BarChart] Données construites:", { labels, values });
   };
 
   const handleContainerClick = (e) => {
     if (!isExpanded) {
-      console.log("🖱️ [BarChart] Clic sur conteneur - Ouverture modal");
       setIsExpanded(true);
     }
   };
@@ -363,16 +375,13 @@ const BarChart = () => {
     }
   });
 
-  // ✅ Fonction de rendu avec plugin LOCAL (n'affecte QUE BarChart)
   const renderChart = () => {
     setTimeout(() => {
       if (!isExpanded) {
         if (chartInstanceRef.current) {
           try {
             chartInstanceRef.current.destroy();
-          } catch (e) {
-            // Ignorer les erreurs de destruction
-          }
+          } catch (e) {}
           chartInstanceRef.current = null;
         }
 
@@ -386,18 +395,14 @@ const BarChart = () => {
             type: "bar",
             data: JSON.parse(JSON.stringify(chartData)),
             options: getChartOptions(false),
-            plugins: [ChartDataLabels]  // ✅ Plugin LOCAL - seulement pour BarChart
+            plugins: [ChartDataLabels]
           });
-        } catch (error) {
-          console.error("❌ Erreur création chart normal:", error);
-        }
+        } catch (error) {}
       } else {
         if (modalChartInstanceRef.current) {
           try {
             modalChartInstanceRef.current.destroy();
-          } catch (e) {
-            // Ignorer les erreurs de destruction
-          }
+          } catch (e) {}
           modalChartInstanceRef.current = null;
         }
 
@@ -411,36 +416,26 @@ const BarChart = () => {
             type: "bar",
             data: JSON.parse(JSON.stringify(chartData)),
             options: getChartOptions(true),
-            plugins: [ChartDataLabels]  // ✅ Plugin LOCAL - seulement pour BarChart
+            plugins: [ChartDataLabels]
           });
-        } catch (error) {
-          console.error("❌ Erreur création chart modal:", error);
-        }
+        } catch (error) {}
       }
     }, 0);
   };
 
   const handleCloseExpanded = (e) => {
     if (e.target.classList.contains('chart-overlay')) {
-      console.log("❌ [BarChart] Fermeture modal");
       setIsExpanded(false);
       buildChartData(allStats);
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    loadAllData();
-  }, []);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isExpanded && Object.keys(allStats).length > 0) {
       applyModalFilters();
     }
   }, [modalFilters, isExpanded]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     renderChart();
   }, [chartData, isExpanded]);
@@ -450,17 +445,13 @@ const BarChart = () => {
       if (chartInstanceRef.current) {
         try {
           chartInstanceRef.current.destroy();
-        } catch (e) {
-          // Ignorer
-        }
+        } catch (e) {}
         chartInstanceRef.current = null;
       }
       if (modalChartInstanceRef.current) {
         try {
           modalChartInstanceRef.current.destroy();
-        } catch (e) {
-          // Ignorer
-        }
+        } catch (e) {}
         modalChartInstanceRef.current = null;
       }
     };
@@ -473,6 +464,17 @@ const BarChart = () => {
         <div className="chart-loading">
           <div className="loading-spinner"></div>
           <p>Chargement des données...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (dataError) {
+    return (
+      <div className="bar-chart-wrapper">
+        <h2 className="chart-title">📊 Collectes par type d'infrastructure</h2>
+        <div className="chart-empty">
+          <p style={{color: 'red'}}>Erreur: {dataError}</p>
         </div>
       </div>
     );
@@ -576,7 +578,6 @@ const BarChart = () => {
                 <button 
                   className="chart-close-btn"
                   onClick={() => {
-                    console.log("❌ [BarChart] Bouton fermeture cliqué");
                     setIsExpanded(false);
                     buildChartData(allStats);
                   }}

@@ -46,7 +46,7 @@ class AuthService {
         };
       }
     } catch (error) {
-      console.error('❌ Erreur de connexion:', error);
+      
       return { 
         success: false, 
         error: 'Impossible de contacter le serveur' 
@@ -163,7 +163,7 @@ class AuthService {
 
       const data = await response.json();
 
-      // ✅ CORRIGÉ : Le refresh renvoie juste {access}
+      //   Le refresh renvoie juste {access}
       if (response.ok && data.access) {
         localStorage.setItem('access_token', data.access);
         
@@ -171,14 +171,14 @@ class AuthService {
         const expiresAt = Date.now() + (3600 * 1000);
         localStorage.setItem('token_expires_at', expiresAt);
         
-        console.log('✅ Token rafraîchi');
+       
         return true;
       } else {
         this.logout();
         return false;
       }
     } catch (error) {
-      console.error('❌ Erreur refresh token:', error);
+      
       this.logout();
       return false;
     }

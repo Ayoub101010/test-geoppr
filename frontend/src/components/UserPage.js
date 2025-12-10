@@ -31,11 +31,11 @@ const UserPage = () => {
       "pistes", "chaussees", "localites", "ecoles", "marches",
       "batiments_administratifs", "infrastructures_hydrauliques",
       "services_santes", "autres_infrastructures", "buses",
-      "dalots", "ponts", "passages_submersibles", "bacs"
+      "dalots", "ponts", "passages_submersibles", "bacs","points_coupures", "points_critiques"
     ])
   });
 
-  // ... reste du code inchangé
+
 
   // Utiliser useCallback pour éviter les re-créations de fonction
   const handleGeographicFiltersChange = React.useCallback((geoFilters) => {
@@ -227,7 +227,30 @@ const UserPage = () => {
               ))}
             </div>
           </div>
-        </div>
+
+          {/* Surveillance */}
+          <div className="filter-section">
+            <div className="filter-title">
+              <i className="fas fa-exclamation-triangle"></i> Surveillance
+            </div>
+            <div className="filter-checkbox-group">
+              {[
+                ["points_coupures", "Points de coupure"],
+                ["points_critiques", "Points critiques"],
+              ].map(([id, label]) => (
+                <div className="checkbox-item" key={id}>
+                  <input 
+                    type="checkbox" 
+                    id={id} 
+                    checked={filters.types.has(id)}
+                    onChange={(e) => handleTypeFilterChange(id, e.target.checked)}
+                  />
+                  <label htmlFor={id}>{label}</label>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>  {/* ← Fin sidebar */}
 
         {/* Contenu principal */}
         <div className="map-container">

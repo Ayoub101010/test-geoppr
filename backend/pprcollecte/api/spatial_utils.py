@@ -18,16 +18,9 @@ class GeoQueryHelper:
     
     @staticmethod
     def transform_geometry(geom, target_srid=4326):
-        """Transformer une géométrie vers un SRID cible"""
-        if not geom:
-            return None
-        try:
-            if geom.srid != target_srid:
-                geom.transform(target_srid)
-            return geom
-        except Exception as e:
-            print(f"Erreur transformation géométrie: {e}")
-            return None
+        """Retourne la géométrie telle quelle, SRID déjà 4326"""
+        return geom
+
 
 class InfrastructureTypeMapper:
     """Classe pour mapper les types d'infrastructures"""

@@ -121,6 +121,8 @@ class CollectesGeoAPIView(APIView):
             'infrastructures_hydrauliques': InfrastructuresHydrauliques,
             'localites': Localites,
             'autres_infrastructures': AutresInfrastructures,
+            'points_coupures': PointsCoupures,      
+            'points_critiques': PointsCritiques,
         }
         
         for type_name, model_class in point_models.items():
@@ -226,12 +228,12 @@ class CollectesGeoAPIView(APIView):
                 for piste in piste_queryset:
                     try:
                         if piste.geom:
-                            simplified_geom = piste.geom.simplify(0.001)
+                            simplified_geom = piste.geom.simplify(0.004)
                             
                             if simplified_geom.empty:
                                 continue
                             
-                            geom_4326 = simplified_geom.transform(4326, clone=True)
+                            geom_4326 = simplified_geom
                             
                             coordinates = None
                             if geom_4326.geom_type == 'LineString':
@@ -263,6 +265,56 @@ class CollectesGeoAPIView(APIView):
                 
             except Exception as e:
                 print(f"Erreur chargement pistes: {e}")
+        #  CHARGEMENT DES CHAUSSÉES
+        if self._should_include_type('chaussees', types_filter):
+            try:
+                chaussees_queryset = Chaussees.objects.filter(geom__isnull=False)
+                
+                if target_commune_ids is not None:
+                    chaussees_queryset = chaussees_queryset.filter(communes_rurales_id__in=target_commune_ids)
+                    print(f"  Filtrage chaussées: {chaussees_queryset.count()} éléments dans les communes {target_commune_ids}")
+                
+                for chaussee in chaussees_queryset:
+                    try:
+                        if chaussee.geom:
+                            # Vérifier si c'est déjà en WGS84 (SRID 4326)
+                            if chaussee.geom.srid == 4326:
+                                geom_4326 = chaussee.geom
+                            else:
+                                geom_4326 = chaussee.geom
+                            
+                            # Extraire les coordonnées MultiLineString
+                            if geom_4326.geom_type == 'LineString':
+                                coordinates = list(geom_4326.coords)
+                            elif geom_4326.geom_type == 'MultiLineString':
+                                coordinates = [list(line.coords) for line in geom_4326]
+                            else:
+                                continue
+                            
+                            feature = {
+                                'type': 'Feature',
+                                'id': f"chaussee_{chaussee.fid}",
+                                'geometry': {
+                                    'type': geom_4326.geom_type,
+                                    'coordinates': coordinates
+                                },
+                                'properties': {
+                                    'fid': int(chaussee.fid),
+                                    'type': 'chaussees',
+                                    'commune_id': chaussee.communes_rurales_id.id if chaussee.communes_rurales_id else None,
+                                    'type_chaus': chaussee.type_chaus,
+                                    'etat_piste': chaussee.etat_piste,
+                                    'code_piste': chaussee.code_piste_id if chaussee.code_piste_id else None
+                                }
+                            }
+                            results['features'].append(feature)
+                            
+                    except Exception as e:
+                        print(f" Erreur processing chaussée {chaussee.fid}: {e}")
+                        continue
+                        
+            except Exception as e:
+                print(f" Erreur chargement chaussées: {e}")
         #  PASSAGES_SUBMERSIBLES comme LineString
         if self._should_include_type('passages_submersibles', types_filter):
             try:
@@ -278,7 +330,7 @@ class CollectesGeoAPIView(APIView):
                             if passage.geom.srid == 4326:
                                 geom_4326 = passage.geom
                             else:
-                                geom_4326 = passage.geom.transform(4326, clone=True)
+                                geom_4326 = passage.geom
                             
                             # Extraire les coordonnées LineString
                             coordinates = list(geom_4326.coords)
@@ -361,6 +413,8 @@ class TypesInfrastructuresAPIView(APIView):
             'dalots': {'label': 'Dalots', 'icon': 'water', 'color': '#3498DB'},
             'bacs': {'label': 'Bacs', 'icon': 'ship', 'color': '#F39C12'},
             'passages_submersibles': {'label': 'Passages submersibles', 'icon': 'water', 'color': '#1ABC9C'},
+            'points_coupures': {'label': 'Points de coupure', 'icon': 'times-circle', 'color': '#C0392B'},      
+            'points_critiques': {'label': 'Points critiques', 'icon': 'exclamation-triangle', 'color': '#D35400'},  
             'localites': {'label': 'Localités', 'icon': 'home', 'color': '#E67E22'},
             'ecoles': {'label': 'Écoles', 'icon': 'graduation-cap', 'color': '#27AE60'},
             'services_santes': {'label': 'Services de santé', 'icon': 'hospital', 'color': '#E74C3C'},
