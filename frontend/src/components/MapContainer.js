@@ -133,7 +133,7 @@ const formatPopupContent = (properties) => {
   // Champs a ignorer (IDs techniques, coordonnees, geometrie, dates systeme)
   const ignoredFields = [
     // IDs techniques
-    'fid', 'id', 'gid',
+    'fid', 'id', 'gid','sqlite_id','code_gps',
     'commune_id', 'login_id', 'communes_rurales_id', 'chaussee_id',
     'prefectures_id', 'regions_id',
     // Geometrie
