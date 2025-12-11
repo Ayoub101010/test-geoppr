@@ -228,7 +228,7 @@ class CollectesGeoAPIView(APIView):
                 for piste in piste_queryset:
                     try:
                         if piste.geom:
-                            simplified_geom = piste.geom.simplify(0.004)
+                            simplified_geom = piste.geom.simplify(0.01)
                             
                             if simplified_geom.empty:
                                 continue

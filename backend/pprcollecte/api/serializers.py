@@ -169,11 +169,35 @@ class PisteWriteSerializer(GeoFeatureModelSerializer):
 
 class PisteReadSerializer(GeoFeatureModelSerializer):
     geom = GeometryField(read_only=True)
+    
+    # ✅ Ces 3 champs sont NÉCESSAIRES pour le Dashboard
+    utilisateur = serializers.SerializerMethodField()
+    commune = serializers.SerializerMethodField()
+    kilometrage = serializers.SerializerMethodField()
 
     class Meta:
         model = Piste
         geo_field = "geom"
         fields = '__all__'
+    
+    def get_utilisateur(self, obj):
+        if obj.login_id:
+            return f"{obj.login_id.nom} {obj.login_id.prenom}".strip()
+        return "Non assigné"
+    
+    def get_commune(self, obj):
+        if obj.communes_rurales_id:
+            return obj.communes_rurales_id.nom
+        return "N/A"
+    
+    def get_kilometrage(self, obj):
+        if obj.geom and obj.geom.geom_type == 'MultiLineString':
+            try:
+                geom_utm = obj.geom.transform(32628, clone=True)
+                return round(geom_utm.length / 1000, 2)
+            except Exception as e:
+                return 0.0
+        return 0.0
 
 class PisteWebSerializer(GeoFeatureModelSerializer):
     """Serializer ultra-léger pour web"""
@@ -448,25 +472,27 @@ class CommuneSearchSerializer(serializers.ModelSerializer):
 
 
 class ChausseesSerializer(GeoFeatureModelSerializer):
+    # ✅ Ce champ est NÉCESSAIRE pour afficher "Chaussées: 2 (3.2 km)"
+    length_km = serializers.SerializerMethodField()
+    
     class Meta:
         model = Chaussees
         geo_field = "geom"
         fields = "__all__"
-        extra_kwargs = {
-            'fid': {'required': False},
-        }
+        extra_kwargs = {'fid': {'required': False}}
 
     def to_internal_value(self, data):
-        """Construction automatique de la geometrie depuis les coordonnees"""
-        if all(k in data for k in ("x_debut_ch", "y_debut_ch", "x_fin_ch", "y_fin_chau")) and not data.get("geom"):
-            x1 = float(data["x_debut_ch"])
-            y1 = float(data["y_debut_ch"])
-            x2 = float(data["x_fin_ch"])
-            y2 = float(data["y_fin_chau"])
-            ls = LineString((x1, y1), (x2, y2), srid=4326)
-            mls = MultiLineString(ls, srid=4326)
-            data["geom"] = mls
+        # ... code existant ...
         return super().to_internal_value(data)
+    
+    def get_length_km(self, obj):
+        if obj.geom and obj.geom.geom_type == 'MultiLineString':
+            try:
+                geom_utm = obj.geom.transform(32628, clone=True)
+                return round(geom_utm.length / 1000, 2)
+            except Exception as e:
+                return 0.0
+        return 0.0
 
 
 class PointsCoupuresSerializer(GeoFeatureModelSerializer):

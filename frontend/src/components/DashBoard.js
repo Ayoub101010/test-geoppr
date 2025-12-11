@@ -1,15 +1,14 @@
 import React, { useState, useMemo, useEffect } from "react";
 import "./DashBoard.css";
+import { FaFileCsv, FaFileExcel, FaChartBar } from "react-icons/fa";
+import { FaRegFileAlt } from "react-icons/fa";
 import useinfrastructuredata from "./useinfrastructuredata";
-import BarChart from "./BarChart";
-import InfrastructureDonut from "./InfrastructureDonut";
 
 const DashBoard = () => {
-  const { pistesCounts, globalStats, loading, error, reloadData, loadingProgress } = useinfrastructuredata();
+  const { pistesCounts, loading, error, reloadData, loadingProgress } = useinfrastructuredata();
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Donnees du tableau (pistesCount avec details)
-  const tableData = useMemo(() => {
+  const data = useMemo(() => {
     if (!pistesCounts || Object.keys(pistesCounts).length === 0) {
       return [];
     }
@@ -37,41 +36,6 @@ const DashBoard = () => {
     }));
   }, [pistesCounts]);
 
-  // Stats globales (globalStats pour les cartes en haut)
-  const stats = useMemo(() => {
-    if (!globalStats || Object.keys(globalStats).length === 0) {
-      return {
-        totalPistes: 0,
-        totalChaussees: 0,
-        totalOuvrages: 0,
-        totalInfrastructures: 0
-      };
-    }
-
-    const totalOuvrages = 
-      (globalStats.buses || 0) +
-      (globalStats.dalots || 0) +
-      (globalStats.ponts || 0) +
-      (globalStats.passages_submersibles || 0) +
-      (globalStats.bacs || 0);
-    
-    const totalInfrastructures = 
-      (globalStats.localites || 0) +
-      (globalStats.ecoles || 0) +
-      (globalStats.marches || 0) +
-      (globalStats.batiments_administratifs || 0) +
-      (globalStats.infrastructures_hydrauliques || 0) +
-      (globalStats.services_santes || 0) +
-      (globalStats.autres_infrastructures || 0);
-
-    return {
-      totalPistes: globalStats.pistes || 0,
-      totalChaussees: globalStats.chaussees || 0,
-      totalOuvrages,
-      totalInfrastructures
-    };
-  }, [globalStats]);
-
   useEffect(() => {
     const tableContainer = document.querySelector('.dashboard-table');
     
@@ -98,10 +62,10 @@ const DashBoard = () => {
       
       return () => window.removeEventListener('resize', checkScroll);
     }
-  }, [tableData]);
+  }, [data]);
 
   const filteredData = useMemo(() => {
-    return tableData.filter((item) => {
+    return data.filter((item) => {
       const matchesSearch = 
         item.utilisateur.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.code_piste.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -109,7 +73,7 @@ const DashBoard = () => {
       
       return matchesSearch;
     });
-  }, [tableData, searchTerm]);
+  }, [data, searchTerm]);
 
   if (loading) {
     return (
@@ -202,40 +166,25 @@ const DashBoard = () => {
         </div>
       </div>
 
-      {/* Statistiques globales depuis globalStats */}
       <div className="dashboard-stats">
         <div className="stats-card">
-          <h3>{stats.totalPistes.toLocaleString()}</h3>
-          <p>Total Pistes</p>
+          <h3>{data.length}</h3>
+          <p>Total des pistes</p>
         </div>
         <div className="stats-card">
-          <h3>{stats.totalChaussees.toLocaleString()}</h3>
-          <p>Total Chaussees</p>
+          <h3>{data.filter(d => d.utilisateur !== "Non assigne").length}</h3>
+          <p>Avec utilisateur</p>
         </div>
         <div className="stats-card">
-          <h3>{stats.totalOuvrages.toLocaleString()}</h3>
-          <p>Total Ouvrages</p>
+          <h3>{data.reduce((sum, d) => sum + parseFloat(d.kilometrage), 0).toFixed(1)} km</h3>
+          <p>Kilometrage total</p>
         </div>
         <div className="stats-card">
-          <h3>{stats.totalInfrastructures.toLocaleString()}</h3>
-          <p>Total Infrastructures</p>
+          <h3>{data.reduce((sum, d) => sum + d.chaussees_count + d.buses + d.ponts + d.dalots + d.bacs + d.ecoles + d.marches + d.services_sante + d.autres + d.batiments_admin + d.hydrauliques + d.localites + d.passages, 0)}</h3>
+          <p>Total infrastructures</p>
         </div>
       </div>
 
-      {/* Graphiques */}
-      <div className="charts-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', margin: '2rem 0' }}>
-        <div className="chart-card" style={{ padding: '1.5rem', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          <h2 style={{ marginBottom: '1rem' }}>Repartition par Type</h2>
-          <BarChart />
-        </div>
-
-        <div className="chart-card" style={{ padding: '1.5rem', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          <h2 style={{ marginBottom: '1rem' }}>Distribution Generale</h2>
-          <InfrastructureDonut />
-        </div>
-      </div>
-
-      {/* Tableau des pistes */}
       <div className="dashboard-table">
         <table>
           <thead>
@@ -298,7 +247,7 @@ const DashBoard = () => {
         </table>
       </div>
       <div className="dashboard-pagination">
-        <p>Affichage de {filteredData.length} sur {tableData.length} elements</p>
+        <p>Affichage de {filteredData.length} sur {data.length} elements</p>
       </div>
     </div>
   );

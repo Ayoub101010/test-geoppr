@@ -30,14 +30,12 @@ const globalStyles = `
   }
 `;
 
-//  Injecter les styles dans le head
+// Injecter les styles dans le head
 const style = document.createElement('style');
 style.textContent = globalStyles;
 document.head.appendChild(style);
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+
+// ✅ SANS React.StrictMode pour éviter les appels API multiples (6×)
+root.render(<App />);

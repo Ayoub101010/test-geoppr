@@ -11,14 +11,102 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import dataservice from './dataservice';
 import MapLegend from "./MapLegend";
 import "./MapContainer.css";
-import indexeddbservice from './indexeddbservice';
-import cacheservice from './cacheservice';
+import sessionCache from './sessioncache';
+import hybridCache from './hybridcache';
+import { isLoading, lockLoading, unlockLoading, getLoadingPromise } from './globalloadinglock';
 
-
-// Variables globales pour empêcher les appels multiples
-let GLOBAL_DATA_CACHE = null;
 let GLOBAL_HIERARCHY_CACHE = null;
-let GLOBAL_LOADING = false;
+
+let GLOBAL_DATA_CACHE = null;  
+
+
+
+const convertToGeoJSON = (infrastructureData) => {
+  const features = [];
+  let totalItems = 0;
+  let itemsWithGeometry = 0;
+  let itemsWithoutGeometry = 0;
+  let itemsWithCommuneId = 0;
+  let itemsWithoutCommuneId = 0;
+  
+  const types = [
+    'pistes', 'chaussees', 'ponts', 'buses', 'dalots', 'bacs',
+    'passages_submersibles', 'ecoles', 'services_santes', 'marches',
+    'batiments_administratifs', 'infrastructures_hydrauliques',
+    'localites', 'autres_infrastructures', 'points_coupures', 'points_critiques'
+  ];
+  
+  types.forEach(type => {
+    const items = infrastructureData[type] || [];
+    totalItems += items.length;
+    
+    console.log(`\n📦 Type: ${type} (${items.length} items)`);
+    
+    // Vérifier le premier item pour voir la structure
+    if (items.length > 0) {
+      const firstItem = items[0];
+      console.log(`   Structure:`, firstItem.type); // "Feature"
+      console.log(`   Properties:`, Object.keys(firstItem.properties || {}));
+      
+      if (firstItem.properties) {
+        console.log(`   commune_id:`, firstItem.properties.commune_id);
+        console.log(`   communes_rurales_id:`, firstItem.properties.communes_rurales_id);
+      }
+    }
+    
+    items.forEach((item, index) => {
+      // ✅ L'item est déjà une Feature GeoJSON
+      const geometry = item.geometry;
+      const props = item.properties || {};
+      
+      if (!geometry) {
+        itemsWithoutGeometry++;
+        if (index === 0) console.log(`   ⚠️ Premier item SANS géométrie`);
+        return;
+      }
+      
+      itemsWithGeometry++;
+      
+      // ✅ ACCÉDER AU commune_id DANS properties
+      const commune_id = props.commune_id || props.communes_rurales_id || null;
+      
+      if (commune_id) {
+        itemsWithCommuneId++;
+      } else {
+        itemsWithoutCommuneId++;
+        if (index === 0) console.log(`   ⚠️ Premier item SANS commune_id`);
+      }
+      
+      // ✅ L'item est déjà une Feature GeoJSON, on l'ajoute directement
+      // Mais on force le type et normalise le commune_id
+      const feature = {
+        type: 'Feature',
+        geometry: geometry,
+        properties: {
+          ...props,
+          type: type,  // ✅ Ajouter/forcer le type
+          commune_id: commune_id  // ✅ Normaliser le commune_id
+        }
+      };
+      
+      features.push(feature);
+    });
+  });
+  
+  console.log('\n📊 RÉSUMÉ CONVERSION GeoJSON:');
+  console.log(`   Total items: ${totalItems}`);
+  console.log(`   Avec géométrie: ${itemsWithGeometry} ✅`);
+  console.log(`   Sans géométrie: ${itemsWithoutGeometry} ❌`);
+  console.log(`   Avec commune_id: ${itemsWithCommuneId} ✅`);
+  console.log(`   Sans commune_id: ${itemsWithoutCommuneId} ❌`);
+  console.log(`   Features créées: ${features.length}`);
+  
+  return {
+    type: 'FeatureCollection',
+    features: features
+  };
+};
+
 const getTypeLabel = (type) => {
   const labels = {
     'pistes': 'Piste Rurale',
@@ -317,67 +405,128 @@ const MapContainer = () => {
   };
 
   // CHARGEMENT INITIAL AVEC CACHE GLOBAL
- const loadAllDataOnce = async () => {
-  // 1️⃣ VÉRIFIER LE CACHE GLOBAL D'ABORD (survit au refresh de React)
+  const loadAllDataOnce = async () => {
+  // Cache mémoire
   if (GLOBAL_DATA_CACHE && GLOBAL_HIERARCHY_CACHE && 
       GLOBAL_DATA_CACHE.features && GLOBAL_DATA_CACHE.features.length > 0) {
-    console.log("📦 Utilisation du cache global existant (pas de chargement)");
+    console.log("✅ MapContainer: Cache mémoire");
     setLocalDataCache(GLOBAL_DATA_CACHE);
     setHierarchyData(GLOBAL_HIERARCHY_CACHE);
-    setIsInitialLoading(false); // ✅ PAS DE "Chargement..."
+    setIsInitialLoading(false);
     return;
   }
   
-  // 2️⃣ Si un autre composant est en train de charger, attendre
-  if (GLOBAL_LOADING) {
-    console.log("⏳ Chargement en cours par un autre composant...");
-    setIsInitialLoading(true); // ✅ Afficher "Chargement..."
+  if (localDataCache && hierarchyData && 
+      localDataCache.features && localDataCache.features.length > 0) {
+    console.log("📦 MapContainer: Cache local");
+    setIsInitialLoading(false);
     return;
   }
   
-  GLOBAL_LOADING = true;
-  setIsInitialLoading(true); // ✅ Afficher "Chargement..."
   
-  try {
-    // 3️⃣ VÉRIFIER IndexedDB ENSUITE
-    console.log("🔍 Verification IndexedDB...");
-    const cachedMapData = await indexeddbservice.get('infrastructure', 'map_data');
-    const cachedHierarchy = await indexeddbservice.get('infrastructure', 'hierarchy');
+  // ✅ Si Dashboard est en train de charger, attendre
+  if (isLoading()) {
+    console.log("⏳ MapContainer: Attente Dashboard...");
+    const promise = getLoadingPromise();
+    if (promise) {
+      await promise;
+      
+      // ✅ ATTENDRE 300ms pour que les données soient sauvées dans IndexedDB
+      console.log("⏳ MapContainer: Attente sauvegarde cache...");
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const cached = await hybridCache.getMapData();
+      const cachedHierarchy = await hybridCache.getHierarchy();
+      
+      if (cached && cachedHierarchy) {
+        console.log("✅ MapContainer: Données reçues du cache map_data");
+        GLOBAL_DATA_CACHE = cached;
+        GLOBAL_HIERARCHY_CACHE = cachedHierarchy;
+        setLocalDataCache(cached);
+        setHierarchyData(cachedHierarchy);
+        setIsInitialLoading(false);
+        return;
+      }
+      
+      // ✅ Si map_data n'existe pas, continuer vers ÉTAPE 2 (infrastructure_data)
+      console.log("⏳ MapContainer: map_data absent, vérification infrastructure_data...");
+    }
+    // NE PAS SORTIR ICI - continuer vers l'ÉTAPE 2
+  }
+  
+  const loadPromise = (async () => {
+    setIsInitialLoading(true);
+    
+    try {
+    // ÉTAPE 1: Vérifier map_data + hierarchy
+    console.log("🔍 MapContainer: Vérification cache...");
+    const cachedMapData = await hybridCache.getMapData();
+    const cachedHierarchy = await hybridCache.getHierarchy();
     
     if (cachedMapData && cachedHierarchy && 
         cachedMapData.features && cachedMapData.features.length > 0) {
-      console.log("✅ Utilisation cache IndexedDB pour la carte");
+      console.log("✅ MapContainer: Cache map_data");
       
-      // ✅ SAUVEGARDER dans les variables GLOBALES
       GLOBAL_DATA_CACHE = cachedMapData;
       GLOBAL_HIERARCHY_CACHE = cachedHierarchy;
       
       setLocalDataCache(GLOBAL_DATA_CACHE);
       setHierarchyData(GLOBAL_HIERARCHY_CACHE);
       setIsInitialLoading(false);
-      GLOBAL_LOADING = false;
+      
       return;
     }
     
-    // 4️⃣ Charger depuis API si pas de cache
-    // 4️⃣ Charger depuis API si pas de cache
-    console.log("📡 Chargement des donnees depuis API...");
-    const [dataResult, hierarchyResponse] = await Promise.all([
-      dataservice.loadAllInfrastructures(),  // ✅ Utilise les 14 endpoints individuels
-      fetch('http://localhost:8000/api/geography/hierarchy/')
-    ]);
-
-    const hierarchyJson = await hierarchyResponse.json();
-
-    if (dataResult.success && dataResult.data) {  // ✅ Juste .data (pas .features)
-      GLOBAL_DATA_CACHE = dataResult.data;
+    // ÉTAPE 2: Vérifier infrastructure_data (chargé par Dashboard)
+    console.log("🔍 MapContainer: Vérification données brutes...");
+    const infraData = await hybridCache.getInfrastructureData();
+    
+    if (infraData) {
+      console.log("📦 MapContainer: Conversion GeoJSON...");
+      
+      const geoJsonData = convertToGeoJSON(infraData);
+      GLOBAL_DATA_CACHE = geoJsonData;
       setLocalDataCache(GLOBAL_DATA_CACHE);
       
-      // ✅ SAUVEGARDER dans IndexedDB
-      await indexeddbservice.save('infrastructure', 'map_data', GLOBAL_DATA_CACHE);
-      console.log(`💾 Cache global cree: ${dataResult.data.features.length} features`);
+      const hierarchyResponse = await fetch('http://localhost:8000/api/geography/hierarchy/');
+      const hierarchyJson = await hierarchyResponse.json();
+      
+      if (hierarchyJson.success) {
+        GLOBAL_HIERARCHY_CACHE = hierarchyJson.hierarchy;
+        setHierarchyData(GLOBAL_HIERARCHY_CACHE);
+        
+        await hybridCache.saveMapData(GLOBAL_DATA_CACHE);
+        await hybridCache.saveHierarchy(GLOBAL_HIERARCHY_CACHE);
+        
+        console.log(`✅ MapContainer: ${geoJsonData.features.length} features`);
+      }
+      
+      setIsInitialLoading(false);
+      
+      return;
+    }
+    
+    // ÉTAPE 3: Charger depuis API
+    console.log("📡 MapContainer: Chargement API...");
+    const [dataResult, hierarchyResponse] = await Promise.all([
+      dataservice.loadAllInfrastructures(),
+      fetch('http://localhost:8000/api/geography/hierarchy/')
+    ]);
+    
+    const hierarchyJson = await hierarchyResponse.json();
+    
+    if (dataResult.success && dataResult.data) {
+      await hybridCache.saveInfrastructureData(dataResult.data);
+      console.log("💾 MapContainer: Données brutes");
+      
+      const geoJsonData = convertToGeoJSON(dataResult.data);
+      GLOBAL_DATA_CACHE = geoJsonData;
+      setLocalDataCache(GLOBAL_DATA_CACHE);
+      
+      await hybridCache.saveMapData(GLOBAL_DATA_CACHE);
+      console.log(`💾 MapContainer: ${geoJsonData.features.length} features`);
     } else {
-      GLOBAL_DATA_CACHE = { features: [] };
+      GLOBAL_DATA_CACHE = { type: 'FeatureCollection', features: [] };
       setLocalDataCache(GLOBAL_DATA_CACHE);
     }
     
@@ -385,21 +534,26 @@ const MapContainer = () => {
       GLOBAL_HIERARCHY_CACHE = hierarchyJson.hierarchy;
       setHierarchyData(GLOBAL_HIERARCHY_CACHE);
       
-      // ✅ SAUVEGARDER dans IndexedDB
-      await indexeddbservice.save('infrastructure', 'hierarchy', GLOBAL_HIERARCHY_CACHE);
-      console.log(`💾 Cache hierarchie cree: ${hierarchyJson.total_communes} communes`);
+      await hybridCache.saveHierarchy(GLOBAL_HIERARCHY_CACHE);
+      console.log(`💾 MapContainer: ${hierarchyJson.total_communes} communes`);
     }
     
   } catch (err) {
-    console.error('❌ Erreur chargement:', err);
-    GLOBAL_DATA_CACHE = { features: [] };
-    setLocalDataCache(GLOBAL_DATA_CACHE);
-  } finally {
-    setIsInitialLoading(false);
-    GLOBAL_LOADING = false;
-  }
+      console.error('❌ MapContainer: Erreur:', err);
+      GLOBAL_DATA_CACHE = { type: 'FeatureCollection', features: [] };
+      setLocalDataCache(GLOBAL_DATA_CACHE);
+    } finally {
+      setIsInitialLoading(false);
+      unlockLoading();
+    }
+  })();
+
+  lockLoading(loadPromise, 'MapContainer');
+  await loadPromise;
 };
 
+
+ 
   // CALCULER LES COMMUNES CIBLES SELON FILTRES HIÉRARCHIQUES
   const getTargetCommunes = () => {
       if (!hierarchyData) return null;
@@ -581,6 +735,26 @@ const MapContainer = () => {
       updateStats(0);
       return;
     }
+    console.log('🔢 Total features à traiter:', filteredFeatures.length);
+
+    let countPoint = 0;
+    let countLineString = 0;
+    let countMultiLineString = 0;
+    let countEmpty = 0;
+
+    filteredFeatures.forEach((feature) => {
+      const type = feature.geometry?.type;
+      if (type === 'Point') countPoint++;
+      else if (type === 'LineString') countLineString++;
+      else if (type === 'MultiLineString') countMultiLineString++;
+      else countEmpty++;
+    });
+
+    console.log('📊 Répartition géométries:');
+    console.log('   Point:', countPoint);
+    console.log('   LineString:', countLineString);
+    console.log('   MultiLineString:', countMultiLineString);
+    console.log('   Autres/Empty:', countEmpty);
 
     let visibleCount = 0;
 
@@ -625,9 +799,9 @@ const MapContainer = () => {
           } else if (type === 'MultiLineString' && coordinates[0]) {
             lineCoords = coordinates[0].map(coord => [coord[1], coord[0]]);
           }
-
+          visibleCount++;
           if (lineCoords.length > 0) {
-            visibleCount++;
+            
 
             //  Style différencié pour les pistes (pointillées)
             const isPiste = properties.type === "pistes";
@@ -681,7 +855,7 @@ const MapContainer = () => {
         console.error('Erreur feature:', featureError);
       }
     });
-
+    console.log('🔢 visibleCount final AVANT updateStats:', visibleCount);
     updateStats(visibleCount);
   };
 

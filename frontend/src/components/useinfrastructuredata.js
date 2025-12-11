@@ -1,247 +1,188 @@
-/**
- * Hook React personnalise pour gerer les donnees d'infrastructures
- * Gere le cache IndexedDB/sessionStorage et le chargement des donnees
- * ✅ NOUVEAU: Détecte la fermeture du navigateur et recharge les données
- * ✅ NOUVEAU: Système de verrouillage global pour éviter appels multiples
- */
-
-import { useState, useEffect, useCallback } from 'react';
-import cacheservice from './cacheservice';
+import { useState, useEffect } from 'react';
 import dataservice from './dataservice';
 import dataprocessor from './dataprocessor';
-
-// ✅ VARIABLES GLOBALES POUR ÉVITER APPELS MULTIPLES
-let GLOBAL_LOADING = false;
-let GLOBAL_LOAD_PROMISE = null;
-let CACHED_RESULT = null;
+import hybridCache from './hybridcache';
+import { isLoading, lockLoading, unlockLoading, getLoadingPromise, getLoadingSource } from './globalloadinglock';
 
 const useInfrastructureData = () => {
+  const [pistesCounts, setPistesCounts] = useState({});
+  const [globalStats, setGlobalStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [infrastructureData, setInfrastructureData] = useState(null);
-  const [processedData, setProcessedData] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
-  /**
-   * Charger les donnees depuis le cache ou l'API
-   */
-  const loadData = useCallback(async (forceReload = false) => {
-    console.log('Loading infrastructure data...');
-    
-    // ✅ VÉRIFIER CACHE MÉMOIRE GLOBAL D'ABORD
-    if (CACHED_RESULT && !forceReload) {
-      console.log('Using memory cache');
-      setInfrastructureData(CACHED_RESULT.infrastructureData);
-      setProcessedData(CACHED_RESULT.processedData);
-      setLoading(false);
-      setLoadingProgress(100);
-      return { success: true, source: 'memory' };
-    }
-    
-    // ✅ SI CHARGEMENT EN COURS PAR UN AUTRE COMPOSANT, ATTENDRE
-    if (GLOBAL_LOADING && GLOBAL_LOAD_PROMISE) {
-      console.log('Loading already in progress, waiting...');
-      try {
-        const result = await GLOBAL_LOAD_PROMISE;
-        if (CACHED_RESULT) {
-          setInfrastructureData(CACHED_RESULT.infrastructureData);
-          setProcessedData(CACHED_RESULT.processedData);
-          setLoading(false);
-          setLoadingProgress(100);
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadEverything() {
+      // ✅ CHECK + LOCK ATOMIQUE
+      console.log('🔒 Dashboard check lock:', isLoading(), 'Source:', getLoadingSource());
+      
+      if (isLoading() && getLoadingPromise()) {
+        console.log('⏳ Dashboard: Attente chargement en cours...');
+        try {
+          await getLoadingPromise();
+          const cached = await hybridCache.getDashboardData();
+          if (cached && mounted) {
+            setPistesCounts(cached.pistesCounts);
+            setGlobalStats(cached.globalStats);
+          }
+        } catch (err) {
+          console.error('Erreur attente:', err);
         }
-        return result;
-      } catch (err) {
-        console.error('Error waiting for global load:', err);
+        setLoading(false);
+        return;
       }
-    }
-    
-    // ✅ MARQUER COMME EN COURS DE CHARGEMENT
-    GLOBAL_LOADING = true;
-    setLoading(true);
-    setError(null);
-    setLoadingProgress(0);
 
-    // ✅ CRÉER LA PROMESSE GLOBALE
-    GLOBAL_LOAD_PROMISE = (async () => {
-      try {
-        // Vérifier si le navigateur a été fermé
-        const browserSessionActive = sessionStorage.getItem('dashboard_session_active');
-        
-        if (!browserSessionActive) {
-          console.log("🔄 Navigateur réouvert, rechargement depuis API...");
-          await cacheservice.clear();
-          forceReload = true;
-          sessionStorage.setItem('dashboard_session_active', 'true');
-        } else {
-          console.log("✅ Session navigateur active (refresh simple)");
-        }
-
-        // Verifier le cache si pas de force reload
-        if (!forceReload) {
-          const cachedInfraData = await cacheservice.getInfrastructureData();
-          const cachedProcessedData = await cacheservice.getProcessedData();
-          
-          if (cachedInfraData && cachedProcessedData) {
-            console.log('Using IndexedDB cache');
-            
-            // ✅ SAUVEGARDER DANS CACHE MÉMOIRE
-            CACHED_RESULT = {
-              infrastructureData: cachedInfraData,
-              processedData: cachedProcessedData
-            };
-            
-            setInfrastructureData(cachedInfraData);
-            setProcessedData(cachedProcessedData);
+      // ✅ CRÉER LA PROMISE IMMÉDIATEMENT
+      const loadPromise = (async () => {
+        try {
+          // 1. Vérifier cache Dashboard
+          const cachedDashboard = await hybridCache.getDashboardData();
+          if (cachedDashboard && mounted) {
+            console.log('✅ Dashboard: Utilisation cache');
+            setPistesCounts(cachedDashboard.pistesCounts);
+            setGlobalStats(cachedDashboard.globalStats);
             setLoading(false);
-            setLoadingProgress(100);
+            return;
+          }
+
+          // 2. Vérifier infrastructure_data (chargé par MapContainer)
+          const cachedInfraData = await hybridCache.getInfrastructureData();
+          
+          if (cachedInfraData && mounted) {
+            console.log('📦 Dashboard: Traitement données existantes');
+            setLoadingProgress(60);
             
-            return { success: true, source: 'cache' };
+            const processed = dataprocessor.processAll(cachedInfraData);
+            
+            if (!mounted) return;
+            setLoadingProgress(90);
+            
+            if (processed.success) {
+              await hybridCache.saveDashboardData(
+                processed.pistesCounts,
+                processed.globalStats
+              );
+              
+              setPistesCounts(processed.pistesCounts);
+              setGlobalStats(processed.globalStats);
+              setLoadingProgress(100);
+              console.log('✅ Dashboard: Traité depuis cache');
+              setLoading(false);
+              return;
+            }
+          }
+
+          // 3. Charger depuis API
+          if (mounted) {
+            console.log('📊 Dashboard: Chargement depuis API...');
+            setLoadingProgress(10);
+          }
+
+          const result = await dataservice.loadAllInfrastructures();
+          
+          if (!mounted) return;
+          setLoadingProgress(60);
+
+          if (result.success && result.data) {
+            await hybridCache.saveInfrastructureData(result.data);
+            
+            console.log('🔄 Dashboard: Traitement...');
+            const processed = dataprocessor.processAll(result.data);
+            
+            if (!mounted) return;
+            setLoadingProgress(90);
+
+            if (processed.success) {
+              await hybridCache.saveDashboardData(
+                processed.pistesCounts,
+                processed.globalStats
+              );
+
+              if (!mounted) return;
+              
+              setPistesCounts(processed.pistesCounts);
+              setGlobalStats(processed.globalStats);
+              setLoadingProgress(100);
+              console.log('✅ Dashboard: Terminé');
+            } else {
+              throw new Error(processed.error || 'Erreur traitement');
+            }
+          } else {
+            throw new Error(result.error || 'Aucune donnée');
+          }
+        } catch (err) {
+          console.error('❌ Dashboard: Erreur:', err);
+          if (mounted) {
+            setError(err.message);
+          }
+          throw err; // Re-throw pour le finally
+        } finally {
+          // ✅ Déverrouiller
+          unlockLoading();
+          if (mounted) {
+            setLoading(false);
           }
         }
+      })();
 
-        // Charger depuis l'API
-        console.log('Loading from API...');
-        setLoadingProgress(10);
+      // ✅ ENREGISTRER LE LOCK IMMÉDIATEMENT (synchrone)
+      lockLoading(loadPromise, 'Dashboard');
+      
+      // Attendre la completion
+      await loadPromise;
+    }
 
-        const result = await dataservice.loadAllInfrastructures();
-        setLoadingProgress(60);
+    loadEverything();
 
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to load data');
-        }
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-        console.log('Data loaded from API');
-        setInfrastructureData(result.data);
+  const reloadData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('🔄 Dashboard: Rechargement forcé...');
+      await hybridCache.clearAll();
+      
+      const result = await dataservice.loadAllInfrastructures();
+      
+      if (result.success && result.data) {
+        await hybridCache.saveInfrastructureData(result.data);
         
-        await cacheservice.saveInfrastructureData(result.data);
-        setLoadingProgress(70);
-
-        console.log('Processing data...');
         const processed = dataprocessor.processAll(result.data);
-        setLoadingProgress(90);
+        
+        if (processed.success) {
+          await hybridCache.saveDashboardData(
+            processed.pistesCounts,
+            processed.globalStats
+          );
 
-        if (!processed.success) {
-          throw new Error(processed.error || 'Failed to process data');
+          setPistesCounts(processed.pistesCounts);
+          setGlobalStats(processed.globalStats);
+          console.log('✅ Dashboard: Rechargé');
         }
-
-        console.log('Data processed');
-        setProcessedData(processed);
-        
-        await cacheservice.saveProcessedData(processed);
-        
-        if (processed.chausseesMapping) {
-          await cacheservice.saveChausseesMapping(processed.chausseesMapping);
-        }
-        
-        // ✅ SAUVEGARDER DANS CACHE MÉMOIRE
-        CACHED_RESULT = {
-          infrastructureData: result.data,
-          processedData: processed
-        };
-        
-        setLoadingProgress(100);
-        setLoading(false);
-
-        return {
-          success: true,
-          source: 'api',
-          duration: result.duration
-        };
-
-      } catch (err) {
-        console.error('Error loading data:', err);
-        setError(err.message);
-        setLoading(false);
-        setLoadingProgress(0);
-        
-        return {
-          success: false,
-          error: err.message
-        };
-      } finally {
-        // ✅ LIBÉRER LE VERROUILLAGE
-        GLOBAL_LOADING = false;
-        GLOBAL_LOAD_PROMISE = null;
       }
-    })();
-
-    return GLOBAL_LOAD_PROMISE;
-  }, []);
-
-  /**
-   * Recharger les donnees (force refresh)
-   */
-  const reloadData = useCallback(() => {
-    console.log('Force reloading data...');
-    CACHED_RESULT = null; // ✅ Vider le cache mémoire
-    return loadData(true);
-  }, [loadData]);
-
-  /**
-   * Vider le cache
-   */
-  const clearCache = useCallback(async () => {
-    console.log('Clearing cache...');
-    await cacheservice.clear();
-    setInfrastructureData(null);
-    setProcessedData(null);
-  }, []);
-
-  /**
-   * Charger automatiquement au montage
-   */
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+    } catch (err) {
+      console.error('❌ Erreur rechargement:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return {
-    // Etat
+    pistesCounts,
+    globalStats,
     loading,
     error,
-    loadingProgress,
-    
-    // Donnees
-    infrastructureData,
-    processedData,
-    pistesCounts: processedData?.pistesCounts || {},
-    globalStats: processedData?.globalStats || {},
-    chausseesMapping: processedData?.chausseesMapping || {},
-    
-    // Methodes
     reloadData,
-    clearCache,
-    
-    // Info
-    cacheInfo: {}
+    loadingProgress
   };
 };
 
-/**
- * Hook simplifie pour obtenir uniquement les donnees traitees
- */
-export const useProcessedData = () => {
-  const { processedData, loading, error } = useInfrastructureData();
-  
-  return {
-    pistesCounts: processedData?.pistesCounts || {},
-    globalStats: processedData?.globalStats || {},
-    loading,
-    error
-  };
-};
-
-/**
- * Hook pour obtenir les donnees brutes
- */
-export const useRawData = () => {
-  const { infrastructureData, loading, error } = useInfrastructureData();
-  
-  return {
-    data: infrastructureData || {},
-    loading,
-    error
-  };
-};
-
-// Export default
 export default useInfrastructureData;

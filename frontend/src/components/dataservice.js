@@ -1,11 +1,11 @@
 /**
- * Service de chargement des donnees depuis les APIs
- * Charge toutes les APIs en parallele pour optimiser les performances
+ * Service de chargement des données depuis les APIs
+ * VERSION CORRIGÉE - Utilise les bons endpoints
  */
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
-// Configuration des endpoints
+// Configuration des endpoints (sans /infrastructure/)
 const ENDPOINTS = {
   // Base
   pistes: '/pistes/',
@@ -29,12 +29,12 @@ const ENDPOINTS = {
   localites: '/localites/',
   autres_infrastructures: '/autres_infrastructures/',
   
-  // Points de surveillance (pour la carte uniquement)
+  // Points de surveillance
   points_coupures: '/points_coupures/',
   points_critiques: '/points_critiques/'
 };
 
-// Types d'infrastructures pour Dashboard + Graphiques (14 types)
+// Types d'infrastructures pour Dashboard (14 types - sans points surveillance)
 const INFRASTRUCTURE_TYPES = [
   'pistes',
   'chaussees',
@@ -52,7 +52,7 @@ const INFRASTRUCTURE_TYPES = [
   'autres_infrastructures'
 ];
 
-// Types supplementaires pour la carte (16 types)
+// Types pour la carte (16 types - avec points surveillance)
 const MAP_TYPES = [
   ...INFRASTRUCTURE_TYPES,
   'points_coupures',
@@ -62,13 +62,14 @@ const MAP_TYPES = [
 class DataService {
   
   /**
-   * Charger une API specifique
+   * Charger un endpoint spécifique
    */
   async fetchEndpoint(type) {
+    // ✅ BON CHEMIN: http://localhost:8000/api/pistes/
     const url = `${API_BASE_URL}${ENDPOINTS[type]}`;
     
     try {
-      console.log('Fetching ' + type + ' from ' + url);
+      console.log(`📡 Fetching ${type} from ${url}`);
       
       const response = await fetch(url, {
         method: 'GET',
@@ -82,55 +83,17 @@ class DataService {
       }
 
       const data = await response.json();
-      
-      // ✅ Gérer tous les formats de réponse possibles
-      let actualData = data;
-      
-      // 1. Format Django REST Framework avec GeoJSON dans results
-      if (data && typeof data === 'object' && 'results' in data) {
-        const results = data.results;
-        
-        // Vérifier si results contient du GeoJSON
-        if (results && typeof results === 'object' && results.type === 'FeatureCollection' && Array.isArray(results.features)) {
-          actualData = results.features;
-          console.log(type + ': ' + actualData.length + ' features loaded (DRF + GeoJSON)');
-        }
-        // Sinon, results est un array simple
-        else if (Array.isArray(results)) {
-          actualData = results;
-          console.log(type + ': ' + actualData.length + ' items loaded (DRF paginated)');
-        }
-        // Sinon, format inattendu
-        else {
-          console.warn(type + ': unexpected results format:', results);
-          actualData = [];
-        }
-      }
-      // 2. Format GeoJSON direct (sans pagination)
-      else if (data && data.type === 'FeatureCollection' && Array.isArray(data.features)) {
-        actualData = data.features;
-        console.log(type + ': ' + actualData.length + ' features loaded (GeoJSON)');
-      }
-      // 3. Format array simple
-      else if (Array.isArray(data)) {
-        actualData = data;
-        console.log(type + ': ' + data.length + ' items loaded (array)');
-      }
-      // 4. Format inconnu
-      else {
-        console.log(type + ': 0 items loaded (unexpected format)');
-        actualData = [];
-      }
+      console.log(`  ✓ ${type}: ${data.length || data.features?.length || 0} éléments`);
       
       return {
         type,
         success: true,
-        data: actualData,
-        count: Array.isArray(actualData) ? actualData.length : 0
+        data: data.features || data,
+        count: data.length || data.features?.length || 0
       };
       
     } catch (error) {
-      console.error('Error fetching ' + type + ':', error);
+      console.error(`  ❌ Erreur ${type}:`, error);
       return {
         type,
         success: false,
@@ -141,58 +104,10 @@ class DataService {
   }
 
   /**
-   * Charger toutes les infrastructures en parallele (14 types)
+   * Charger toutes les infrastructures (14 types - Dashboard)
    */
   async loadAllInfrastructures() {
-    console.log('Loading all infrastructures in parallel...');
-    const startTime = performance.now();
-    
-    try {
-      const promises = INFRASTRUCTURE_TYPES.map(type => this.fetchEndpoint(type));
-      const results = await Promise.all(promises);
-      
-      const endTime = performance.now();
-      const duration = ((endTime - startTime) / 1000).toFixed(2);
-      
-      const organizedData = {};
-      let totalCount = 0;
-      let successCount = 0;
-      
-      results.forEach(result => {
-        organizedData[result.type] = result.data;
-        if (result.success) {
-          successCount++;
-          totalCount += result.count;
-        }
-      });
-      
-      console.log('All infrastructures loaded in ' + duration + 's');
-      console.log('Total: ' + totalCount + ' items from ' + successCount + '/' + INFRASTRUCTURE_TYPES.length + ' APIs');
-      
-      return {
-        success: true,
-        data: organizedData,
-        duration,
-        totalCount,
-        successCount,
-        failedCount: INFRASTRUCTURE_TYPES.length - successCount
-      };
-      
-    } catch (error) {
-      console.error('Error loading infrastructures:', error);
-      return {
-        success: false,
-        error: error.message,
-        data: {}
-      };
-    }
-  }
-
-  /**
-   * Charger toutes les donnees pour la carte (16 types)
-   */
-  async loadMapData() {
-    console.log('Loading map data in parallel...');
+    console.log('📥 Loading all infrastructures in parallel...');
     const startTime = performance.now();
     
     try {
@@ -214,8 +129,8 @@ class DataService {
         }
       });
       
-      console.log('Map data loaded in ' + duration + 's');
-      console.log('Total: ' + totalCount + ' items from ' + successCount + '/' + MAP_TYPES.length + ' APIs');
+      console.log(`✅ Chargement terminé en ${duration}s`);
+      console.log(`📊 Total: ${totalCount} éléments depuis ${successCount}/${MAP_TYPES.length} APIs`);
       
       return {
         success: true,
@@ -227,7 +142,55 @@ class DataService {
       };
       
     } catch (error) {
-      console.error('Error loading map data:', error);
+      console.error('❌ Erreur chargement:', error);
+      return {
+        success: false,
+        error: error.message,
+        data: {}
+      };
+    }
+  }
+
+  /**
+   * Charger toutes les données pour la carte (16 types)
+   */
+  async loadMapData() {
+    console.log('🗺️ Loading map data in parallel...');
+    const startTime = performance.now();
+    
+    try {
+      const promises = MAP_TYPES.map(type => this.fetchEndpoint(type));
+      const results = await Promise.all(promises);
+      
+      const endTime = performance.now();
+      const duration = ((endTime - startTime) / 1000).toFixed(2);
+      
+      const organizedData = {};
+      let totalCount = 0;
+      let successCount = 0;
+      
+      results.forEach(result => {
+        organizedData[result.type] = result.data;
+        if (result.success) {
+          successCount++;
+          totalCount += result.count;
+        }
+      });
+      
+      console.log(`✅ Map data loaded in ${duration}s`);
+      console.log(`📊 Total: ${totalCount} items from ${successCount}/${MAP_TYPES.length} APIs`);
+      
+      return {
+        success: true,
+        data: organizedData,
+        duration,
+        totalCount,
+        successCount,
+        failedCount: MAP_TYPES.length - successCount
+      };
+      
+    } catch (error) {
+      console.error('❌ Error loading map data:', error);
       return {
         success: false,
         error: error.message,
@@ -252,7 +215,7 @@ class DataService {
   }
 
   async reloadAll() {
-    console.log('Force reloading all data...');
+    console.log('🔄 Force reloading all data...');
     return this.loadAllInfrastructures();
   }
 }
