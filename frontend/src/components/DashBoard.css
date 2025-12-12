@@ -1,17 +1,33 @@
-
 .dashboard {
   padding: 2rem;
   background-color: #f8f9fa;
   min-height: 100vh;
 }
 
-.dashboard-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 2rem;
-  border-radius: 10px;
-  margin-bottom: 2rem;
+.dashboard-header-blue {
+  background: linear-gradient(to right, #1e3c72, #2a77d1);
+  padding: 2.5rem 0;
+  border-radius: 20px;
   text-align: center;
+  color: white;
+  margin-bottom: 2rem;
+}
+
+.dashboard-header-blue .icon {
+  font-size: 3rem;
+  margin-bottom: 0.8rem;
+}
+
+.dashboard-header-blue .title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.dashboard-header-blue .subtitle {
+  font-size: 1rem;
+  opacity: 0.9;
+  margin-top: 0.4rem;
 }
 
 .dashboard-header h1 {
@@ -114,7 +130,7 @@
 }
 
 .stats-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e3c72 0%, #2a77d1 100%);
   color: white;
   padding: 1.5rem;
   border-radius: 10px;
@@ -154,6 +170,10 @@
   font-size: 0.9rem;
   white-space: nowrap;
 }
+.dashboard-table thead th {
+  background: #324967 !important;
+  color: white !important;
+}
 
 .dashboard-table th {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -169,7 +189,7 @@
 }
 
 /* En-têtes des colonnes infrastructures - centrées */
-.dashboard-table th:nth-child(n+6) {
+.dashboard-table th:nth-child(n + 6) {
   text-align: center;
 }
 
@@ -284,13 +304,13 @@
 
 /* Ombre à droite pour indiquer scroll horizontal */
 .dashboard-table::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
   width: 30px;
-  background: linear-gradient(to left, rgba(255,255,255,0.9), transparent);
+  background: linear-gradient(to left, rgba(255, 255, 255, 0.9), transparent);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.3s;
@@ -303,13 +323,13 @@
 
 /* Ombre en bas pour indiquer scroll vertical */
 .dashboard-table::before {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   height: 30px;
-  background: linear-gradient(to top, rgba(255,255,255,0.9), transparent);
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.9), transparent);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.3s;
@@ -387,8 +407,12 @@
 /* ==================== LOADING ET ERROR ==================== */
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-container,
@@ -408,12 +432,12 @@
     max-width: 200px;
     min-width: 150px;
   }
-  
+
   .dashboard-table {
     font-size: 0.85rem;
     max-height: 500px; /* Hauteur réduite sur écrans moyens */
   }
-  
+
   .infra-count {
     min-width: 50px;
     padding: 0.5rem 0.25rem;
@@ -425,12 +449,12 @@
     font-size: 0.8rem;
     max-height: 450px; /* Hauteur encore plus réduite */
   }
-  
+
   .dashboard-table th,
   .dashboard-table td {
     padding: 0.75rem 0.5rem;
   }
-  
+
   .actions-cell {
     flex-direction: column;
   }
@@ -440,33 +464,33 @@
   .dashboard {
     padding: 1rem;
   }
-  
+
   .dashboard-header h1 {
     font-size: 1.5rem;
   }
-  
+
   .filters-row,
   .actions-row {
     flex-direction: column;
   }
-  
+
   .search-input {
     min-width: 100%;
   }
-  
+
   .dashboard-stats {
     grid-template-columns: 1fr 1fr;
   }
-  
+
   .dashboard-table {
     max-height: 400px; /* Hauteur mobile */
   }
-  
+
   .code-piste {
     max-width: 150px;
     min-width: 120px;
   }
-  
+
   .infra-count {
     min-width: 45px;
   }
@@ -476,12 +500,228 @@
   .dashboard-stats {
     grid-template-columns: 1fr;
   }
-  
+
   .stats-card h3 {
     font-size: 1.5rem;
   }
-  
+
   .dashboard-table {
     max-height: 350px; /* Hauteur très petits écrans */
   }
+}
+
+/* ===== Suivi Données ===== */
+
+/* =========================================================
+   SUIVI DES DONNEES - HEADER
+   (indépendant du style GestionUserPage)
+   ========================================================= */
+
+.data-tracking-header {
+  background: linear-gradient(to right, #1e3c72, #2a77d1);
+  color: #ffffff;
+  padding: 2.5rem 1rem;
+  border-radius: 20px;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.data-tracking-header-icon {
+  font-size: 3rem;
+  margin-bottom: 0.8rem;
+}
+
+.data-tracking-header-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.data-tracking-header-subtitle {
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* =========================================================
+   SUIVI DES DONNEES - LAYOUT GENERAL
+   ========================================================= */
+
+.data-tracking-layout {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+  align-items: stretch;
+}
+
+/* Colonne de gauche */
+.data-tracking-sidebar {
+  width: 220px;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.data-tracking-sidebar h3 {
+  margin: 0 0 0.8rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.data-tracking-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.data-tracking-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: #333;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.data-tracking-item + .data-tracking-item {
+  margin-top: 0.2rem;
+}
+
+.data-tracking-item:hover {
+  background: #f1f3f5;
+}
+
+.data-tracking-item.active {
+  background: #009460;
+  color: #ffffff;
+}
+
+.data-tracking-item.active .data-tracking-count {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.data-tracking-count {
+  min-width: 34px;
+  text-align: center;
+  font-size: 0.85rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.35rem;
+  background: #e9ecef;
+}
+
+/* =========================================================
+   SUIVI DES DONNEES - PARTIE DROITE (FILTRES + TABLEAU)
+   ========================================================= */
+
+.data-tracking-table-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Carte filtres + boutons export */
+.data-tracking-table-container .dashboard-controls {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+  margin-bottom: 1rem;
+}
+
+/* Conteneur du tableau */
+.data-tracking-table {
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: auto;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1.5rem;
+  max-height: calc(100vh - 320px);
+}
+
+/* Table interne */
+.data-tracking-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  table-layout: auto;
+}
+/* En-tête du tableau (style bleu foncé type GestionUser) */
+.data-tracking-table thead {
+  background: #324967;
+  color: #ffffff;
+}
+
+.data-tracking-table th {
+  background: #324967 !important;
+  color: #ffffff;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: none;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.data-tracking-table thead th:first-child {
+  border-top-left-radius: 12px;
+}
+
+.data-tracking-table thead th:last-child {
+  border-top-right-radius: 12px;
+}
+
+/* Corps du tableau */
+.data-tracking-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.data-tracking-table tbody tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+.data-tracking-table tbody tr:hover {
+  background-color: #eef2f7;
+}
+.data-tracking-input {
+  max-width: 100%;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 0.8rem;
+  background-color: #ffffff;
+}
+
+.data-tracking-input:focus {
+  outline: none;
+  border-color: #009460;
+  box-shadow: 0 0 0 2px rgba(0, 148, 96, 0.2);
+}
+.data-tracking-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0 1rem;
+  font-size: 0.9rem;
+}
+
+.data-tracking-pagination .btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

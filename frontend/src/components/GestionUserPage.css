@@ -93,6 +93,7 @@
   color: white;
   border: none;
   cursor: pointer;
+  background: linear-gradient(45deg, #dc3545, #6c757d);
 }
 
 .btn.green {
@@ -143,6 +144,7 @@ tbody tr:hover {
 input[type="checkbox"] {
   transform: scale(1.1);
 }
+
 .badge {
   padding: 4px 8px;
   border-radius: 20px;
@@ -162,6 +164,10 @@ input[type="checkbox"] {
 
 .badge.gray {
   background-color: #a0aec0;
+}
+
+.badge.blue {
+  background-color: #3182ce;
 }
 
 .actions button {
@@ -186,77 +192,20 @@ input[type="checkbox"] {
   color: white;
 }
 
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.35);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 999;
-}
-
-.modal-content {
-  background: white;
-  width: 95%;
-  max-width: 700px;
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  animation: fadeIn 0.25s ease-out;
-}
-
-.modal-content h2 {
-  background: #234468;
-  color: white;
-  padding: 1rem;
-  border-radius: 8px 8px 0 0;
-  margin: -2rem -2rem 1rem -2rem;
-  font-size: 1.3rem;
-}
-
-.modal-content p {
-  font-size: 0.95rem;
-  color: white;
-  margin-bottom: 0.5rem;
-}
-
-.modal-content form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.modal-content input {
-  padding: 0.6rem;
-  border: 1px solid #cbd5e0;
-  border-radius: 6px;
-  font-size: 1rem;
-}
-.btn {
-  background: linear-gradient(45deg, #dc3545, #6c757d);
-  position: relative;
-  margin-top: 10px;
-}
-.btn.red {
-  background: linear-gradient(45deg, #28a745, #218838); /* vert */
-  color: white;
-}
+/* ================== FORMULAIRE DANS LES MODALES ================== */
 
 .edit-form {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem 2rem;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 
 .edit-form label {
   grid-column: span 2;
-  font-weight: 500;
-  color: white;
+  font-weight: 600;
+  color: #1f2937; /* texte foncé sur fond blanc */
+  font-size: 0.9rem;
 }
 
 .edit-form input,
@@ -265,44 +214,16 @@ input[type="checkbox"] {
   padding: 0.7rem;
   border: 1px solid #cbd5e0;
   border-radius: 6px;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  background: #ffffff;
 }
 
 .edit-form button {
   grid-column: span 2;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 
-.modal-content .btn {
-  margin-top: 1.5rem;
-}
 /* Responsive */
-@media (max-width: 600px) {
-  .edit-form {
-    grid-template-columns: 1fr;
-  }
-
-  .modal-content h2 {
-    font-size: 1.1rem;
-    padding: 0.75rem;
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-.badge.blue {
-  background-color: #3182ce; /* bleu */
-}
-
-
 @media (max-width: 768px) {
   .gestion-controls {
     flex-direction: column;
@@ -317,5 +238,108 @@ input[type="checkbox"] {
   .search-input {
     width: 100%;
     margin-right: 0;
+  }
+
+  table {
+    min-width: 0;
+  }
+
+  .edit-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ================== NOUVEAU STYLE DE MODALES ================== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+/* carte avec bordure dégradée */
+.modal-shell {
+  background: linear-gradient(135deg, #1e3c72, #2a77d1);
+  padding: 1.1rem;
+  border-radius: 22px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.5);
+  width: 100%;
+  max-width: 520px;
+}
+
+.modal-shell.modal-shell-wide {
+  max-width: 640px;
+}
+
+/* panneau intérieur blanc */
+.modal-inner {
+  background: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* bandeau de titre bleu-violet, comme la vidéo */
+.modal-inner-header {
+  background: linear-gradient(135deg, #1e3c72, #2a77d1);
+  padding: 0.9rem 1.5rem;
+  text-align: center;
+}
+
+.modal-inner-header h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+/* contenu blanc */
+.modal-inner-body {
+  padding: 1.4rem 1.8rem 1.8rem;
+}
+
+.modal-inner-body p {
+  margin: 0 0 0.6rem;
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+.modal-view-content p,
+.modal-delete-content p {
+  margin-bottom: 0.7rem;
+}
+
+/* boutons dans modale */
+.modal-inner .btn {
+  border-radius: 999px;
+  padding: 0.45rem 1.1rem;
+  font-size: 0.9rem;
+}
+
+.modal-close-btn {
+  margin-top: 1.2rem;
+  width: 100%;
+}
+
+.delete-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }

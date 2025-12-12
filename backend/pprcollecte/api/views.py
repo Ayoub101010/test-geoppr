@@ -454,3 +454,122 @@ class PontsListCreateAPIView(generics.ListCreateAPIView):
         if commune_id:
             queryset = queryset.filter(commune_id=commune_id)
         return queryset
+    
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.core.exceptions import FieldDoesNotExist
+
+from .models import (
+    Piste,
+    Chaussees,
+    Buses,
+    Dalots,
+    Ponts,
+    PassagesSubmersibles,
+    Bacs,
+    Ecoles,
+    Marches,
+    ServicesSantes,
+    BatimentsAdministratifs,
+    InfrastructuresHydrauliques,
+    Localites,
+    AutresInfrastructures,
+    PointsCoupures,
+    PointsCritiques,
+)
+
+
+class InfrastructureUpdateAPIView(APIView):
+    """
+    API générique pour mettre à jour une ligne d'infrastructure.
+
+    URL attendue : /api/update/<table>/<fid>/
+    Exemple       : /api/update/chaussees/2/
+    """
+
+    MODEL_MAP = {
+        "pistes": Piste,
+        "chaussees": Chaussees,
+        "buses": Buses,
+        "dalots": Dalots,
+        "ponts": Ponts,
+        "passages_submersibles": PassagesSubmersibles,
+        "bacs": Bacs,
+        "ecoles": Ecoles,
+        "marches": Marches,
+        "services_santes": ServicesSantes,
+        "batiments_administratifs": BatimentsAdministratifs,
+        "infrastructures_hydrauliques": InfrastructuresHydrauliques,
+        "localites": Localites,
+        "autres_infrastructures": AutresInfrastructures,
+        "points_coupures": PointsCoupures,
+        "points_critiques": PointsCritiques,
+    }
+
+    def put(self, request, table, fid):
+        # 1) Vérifier que la table est connue
+        model = self.MODEL_MAP.get(table)
+        if model is None:
+            return Response(
+                {"success": False, "error": f"Table inconnue: {table}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 2) Récupérer l’objet par sa PK (fid)
+        try:
+            obj = model.objects.get(pk=fid)
+        except model.DoesNotExist:
+            return Response(
+                {"success": False, "error": f"{table} avec fid={fid} introuvable"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        data = request.data or {}
+
+        # On évite de modifier ces champs sensibles
+        forbidden = {"fid", "id", "geom", "length_km"}
+
+        # Tous les noms de champs "concrets" du modèle
+        valid_field_names = {
+            f.name
+            for f in model._meta.get_fields()
+            if getattr(f, "concrete", False) and not f.auto_created
+        }
+
+        updated = {}
+
+        for key, value in data.items():
+            # On ignore les champs interdits ou inconnus
+            if key in forbidden or key not in valid_field_names:
+                continue
+
+            field = model._meta.get_field(key)
+
+            # Si le champ accepte null et qu'on reçoit "", on le convertit en None
+            if value == "" and getattr(field, "null", False):
+                value = None
+
+            setattr(obj, key, value)
+            updated[key] = value
+
+        if not updated:
+            # Ici tu aurais un 400 avec le message ci-dessous → utile pour debug
+            return Response(
+                {
+                    "success": False,
+                    "error": "Aucun champ valide à mettre à jour pour cette table.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        obj.save()
+
+        return Response(
+            {
+                "success": True,
+                "fid": obj.pk,
+                "updated_fields": updated,
+            },
+            status=status.HTTP_200_OK,
+        )

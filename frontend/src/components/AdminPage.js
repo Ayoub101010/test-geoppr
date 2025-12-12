@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from "react";
 import geoLogo from "../assets/GeoPPR_Logo.png";
 import "leaflet/dist/leaflet.css";
@@ -7,9 +6,9 @@ import BarChart from "./BarChart";
 import MapContainer from "./MapContainer";
 import TimeChart from "./TimeChart";
 import Dashboard from "./DashBoard";
-import GeographicFilterWithZoom from './GeographicFilterWithZoom';
+import GeographicFilterWithZoom from "./GeographicFilterWithZoom";
 import "./SuperAdminPage.css"; // Réutilise les mêmes styles
-import { useAuth } from './AuthContext';
+import { useAuth } from "./AuthContext";
 
 const AdminPage = () => {
   const [currentView, setCurrentView] = useState("map");
@@ -17,7 +16,7 @@ const AdminPage = () => {
   const profileRef = useRef(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const { user, logout } = useAuth();
-  
+
   // Récupérer les infos utilisateur
   const getUserInfo = () => {
     // Priorité 1: Context
@@ -26,12 +25,12 @@ const AdminPage = () => {
         nom: user.nom || user.last_name || "Utilisateur",
         prenom: user.prenom || user.first_name || "",
         email: user.mail || user.email || "",
-        role: user.role || "admin"
+        role: user.role || "admin",
       };
     }
-    
+
     // Priorité 2: localStorage
-    const userStr = localStorage.getItem('user');
+    const userStr = localStorage.getItem("user");
     if (userStr) {
       try {
         const userData = JSON.parse(userStr);
@@ -39,23 +38,23 @@ const AdminPage = () => {
           nom: userData.nom || userData.last_name || "Utilisateur",
           prenom: userData.prenom || userData.first_name || "",
           email: userData.mail || userData.email || "",
-          role: userData.role || "admin"
+          role: userData.role || "admin",
         };
-      } catch (e) {
-        
-      }
+      } catch (e) {}
     }
-    
+
     return { nom: "Utilisateur", prenom: "", email: "", role: "admin" };
   };
-  
+
   const [profile] = useState(getUserInfo());
-  
+
   // Générer les initiales (2 premières lettres)
   const getInitials = () => {
-    const firstLetter = profile.prenom ? profile.prenom.charAt(0).toUpperCase() : '';
-    const secondLetter = profile.nom ? profile.nom.charAt(0).toUpperCase() : '';
-    return firstLetter + secondLetter || 'AD';
+    const firstLetter = profile.prenom
+      ? profile.prenom.charAt(0).toUpperCase()
+      : "";
+    const secondLetter = profile.nom ? profile.nom.charAt(0).toUpperCase() : "";
+    return firstLetter + secondLetter || "AD";
   };
 
   useEffect(() => {
@@ -77,8 +76,6 @@ const AdminPage = () => {
     <div className="superadmin-wrapper">
       {/* Header identique */}
       <div className="header">
-        
-
         {/* Navigation SANS l'option Utilisateurs */}
         <div className="nav-menu">
           <div
@@ -88,7 +85,9 @@ const AdminPage = () => {
             <i className="fas fa-map-marked-alt"></i> Carte
           </div>
           <div
-            className={`nav-item ${currentView === "dashboard" ? "active" : ""}`}
+            className={`nav-item ${
+              currentView === "dashboard" ? "active" : ""
+            }`}
             onClick={() => setCurrentView("dashboard")}
           >
             <i className="fas fa-chart-line"></i> Tableau de Bord
@@ -98,7 +97,7 @@ const AdminPage = () => {
 
         {/* Profil - Version corrigée */}
         <div className="user-profile" ref={profileRef}>
-          <div 
+          <div
             className="profile-pic"
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             style={{ cursor: "pointer" }}
@@ -106,14 +105,21 @@ const AdminPage = () => {
             {getInitials()}
           </div>
           <div className="user-info">
-            <h4>{profile.prenom} {profile.nom}</h4>
+            <h4>
+              {profile.prenom} {profile.nom}
+            </h4>
             <span>Administrateur</span>
           </div>
 
           {showProfileMenu && (
             <div className="profile-dropdown">
               <ul>
-                <li onClick={() => { setShowLogoutModal(true); setShowProfileMenu(false); }}>
+                <li
+                  onClick={() => {
+                    setShowLogoutModal(true);
+                    setShowProfileMenu(false);
+                  }}
+                >
                   <i className="fas fa-sign-out-alt"></i> Déconnexion
                 </li>
               </ul>
@@ -136,7 +142,10 @@ const AdminPage = () => {
       )}
 
       {/* Vue Carte */}
-      <div className="main-container" style={{ display: currentView === "map" ? "flex" : "none" }}>
+      <div
+        className="main-container"
+        style={{ display: currentView === "map" ? "flex" : "none" }}
+      >
         {/* Sidebar avec filtres */}
         <div className="sidebar">
           {/* Section géographique avec événement personnalisé */}
@@ -144,19 +153,21 @@ const AdminPage = () => {
             <div className="filter-title">
               <i className="fas fa-map-marker-alt"></i> Localisation
             </div>
-            <GeographicFilterWithZoom 
+            <GeographicFilterWithZoom
               onFiltersChange={(geoFilters) => {
                 // Déclencher l'événement pour MapContainer
                 setTimeout(() => {
-                  window.dispatchEvent(new CustomEvent('geographicFilterChanged', {
-                    detail: geoFilters
-                  }));
+                  window.dispatchEvent(
+                    new CustomEvent("geographicFilterChanged", {
+                      detail: geoFilters,
+                    })
+                  );
                 }, 100);
               }}
               showLabels={true}
             />
           </div>
-          
+
           <div className="filter-section">
             <div className="filter-title">
               <i className="fas fa-road"></i> Routes
@@ -167,11 +178,7 @@ const AdminPage = () => {
                 ["chaussees", "Chaussées"],
               ].map(([id, label]) => (
                 <div className="checkbox-item" key={id}>
-                  <input 
-                    type="checkbox" 
-                    id={id}
-                    defaultChecked
-                  />
+                  <input type="checkbox" id={id} defaultChecked />
                   <label htmlFor={id}>{label}</label>
                 </div>
               ))}
@@ -188,16 +195,15 @@ const AdminPage = () => {
                 ["ecoles", "Écoles"],
                 ["marches", "Marchés"],
                 ["batiments_administratifs", "Bâtiments administratifs"],
-                ["infrastructures_hydrauliques", "Infrastructures hydrauliques"],
+                [
+                  "infrastructures_hydrauliques",
+                  "Infrastructures hydrauliques",
+                ],
                 ["services_santes", "Services de santé"],
                 ["autres_infrastructures", "Autres infrastructures"],
               ].map(([id, label]) => (
                 <div className="checkbox-item" key={id}>
-                  <input 
-                    type="checkbox" 
-                    id={id}
-                    defaultChecked
-                  />
+                  <input type="checkbox" id={id} defaultChecked />
                   <label htmlFor={id}>{label}</label>
                 </div>
               ))}
@@ -217,11 +223,7 @@ const AdminPage = () => {
                 ["bacs", "Bacs"],
               ].map(([id, label]) => (
                 <div className="checkbox-item" key={id}>
-                  <input 
-                    type="checkbox" 
-                    id={id}
-                    defaultChecked
-                  />
+                  <input type="checkbox" id={id} defaultChecked />
                   <label htmlFor={id}>{label}</label>
                 </div>
               ))}
@@ -237,18 +239,13 @@ const AdminPage = () => {
                 ["points_critiques", "Points critiques"],
               ].map(([id, label]) => (
                 <div className="checkbox-item" key={id}>
-                  <input 
-                    type="checkbox" 
-                    id={id}
-                    defaultChecked
-                  />
+                  <input type="checkbox" id={id} defaultChecked />
                   <label htmlFor={id}>{label}</label>
                 </div>
               ))}
             </div>
           </div>
-        </div>  
-        
+        </div>
 
         {/* Carte */}
         <div className="map-container">
@@ -264,8 +261,8 @@ const AdminPage = () => {
       </div>
 
       {/* Vue Dashboard */}
-      <div 
-        className="view-container dashboard-view" 
+      <div
+        className="view-container dashboard-view"
         style={{ display: currentView === "dashboard" ? "block" : "none" }}
       >
         <Dashboard />

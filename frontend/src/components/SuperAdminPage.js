@@ -9,18 +9,19 @@ import MapContainer from "./MapContainer";
 import Dashboard from "./DashBoard";
 import GestionUserPage from "./GestionUserPage";
 import "./SuperAdminPage.css";
-import CommuneSelector from './CommuneSelector';
-import GeographicFilter from './GeographicFilterWithZoom';
+import CommuneSelector from "./CommuneSelector";
+import GeographicFilter from "./GeographicFilterWithZoom";
+import DataTrackingPage from "./DataTrackingPage";
 
 const SuperAdminPage = () => {
   const [currentView, setCurrentView] = useState("map"); // ← AJOUTÉ
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileRef = useRef(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  
+
   // Récupérer les infos utilisateur depuis localStorage
   const getUserInfo = () => {
-    const userStr = localStorage.getItem('user');
+    const userStr = localStorage.getItem("user");
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
@@ -28,22 +29,24 @@ const SuperAdminPage = () => {
           nom: user.nom || user.last_name || "Utilisateur",
           prenom: user.prenom || user.first_name || "",
           email: user.email || "",
-          role: user.role || "super_admin"
+          role: user.role || "super_admin",
         };
       } catch (e) {
-        console.error('Erreur parsing user:', e);
+        console.error("Erreur parsing user:", e);
       }
     }
     return { nom: "Utilisateur", prenom: "", email: "", role: "super_admin" };
   };
-  
+
   const [profile] = useState(getUserInfo());
-  
+
   // Générer les initiales (2 premières lettres)
   const getInitials = () => {
-    const firstLetter = profile.prenom ? profile.prenom.charAt(0).toUpperCase() : '';
-    const secondLetter = profile.nom ? profile.nom.charAt(0).toUpperCase() : '';
-    return firstLetter + secondLetter || 'SA';
+    const firstLetter = profile.prenom
+      ? profile.prenom.charAt(0).toUpperCase()
+      : "";
+    const secondLetter = profile.nom ? profile.nom.charAt(0).toUpperCase() : "";
+    return firstLetter + secondLetter || "SA";
   };
 
   // État des filtres
@@ -114,9 +117,9 @@ const SuperAdminPage = () => {
   }, [currentView]);
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('isAuthenticated');
-    window.location.href = '/';
+    localStorage.removeItem("user");
+    localStorage.removeItem("isAuthenticated");
+    window.location.href = "/";
   };
 
   return (
@@ -131,8 +134,6 @@ const SuperAdminPage = () => {
 
       {/* Header */}
       <div className="header">
-        
-        
         <div className="nav-menu">
           <div
             className={`nav-item ${currentView === "map" ? "active" : ""}`}
@@ -141,7 +142,9 @@ const SuperAdminPage = () => {
             <i className="fas fa-map"></i> Carte
           </div>
           <div
-            className={`nav-item ${currentView === "dashboard" ? "active" : ""}`}
+            className={`nav-item ${
+              currentView === "dashboard" ? "active" : ""
+            }`}
             onClick={goToDashboard}
           >
             <i className="fas fa-chart-line"></i> Tableau de bord
@@ -152,10 +155,19 @@ const SuperAdminPage = () => {
           >
             <i className="fas fa-users"></i> Gestion Utilisateurs
           </div>
+          {/* 🔹 Nouveau bouton Suivi des données */}
+          <div
+            className={`nav-item ${
+              currentView === "data-tracking" ? "active" : ""
+            }`}
+            onClick={() => setCurrentView("data-tracking")}
+          >
+            <i className="fas fa-database"></i> Suivi des données
+          </div>
         </div>
 
         <div className="user-profile" ref={profileRef}>
-          <div 
+          <div
             className="profile-pic"
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             style={{ cursor: "pointer" }}
@@ -163,7 +175,9 @@ const SuperAdminPage = () => {
             {getInitials()}
           </div>
           <div className="user-info">
-            <h4>{profile.prenom} {profile.nom}</h4>
+            <h4>
+              {profile.prenom} {profile.nom}
+            </h4>
             <span>Super Admin</span>
           </div>
 
@@ -180,19 +194,42 @@ const SuperAdminPage = () => {
       </div>
 
       {showLogoutModal && (
-        <div className="modal-overlay" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-content">
-            <h3>Êtes-vous sûr de vouloir vous déconnecter ?</h3>
+        <div
+          className="modal-overlay"
+          onClick={() => setShowLogoutModal(false)}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()} // évite de fermer en cliquant dans la modale
+          >
+            <h2 className="modal-title">
+              Êtes-vous sûr de vouloir vous déconnecter ?
+            </h2>
+
             <div className="modal-buttons">
-              <button onClick={handleLogout}>Oui</button>
-              <button onClick={() => setShowLogoutModal(false)}>Non</button>
+              <button
+                type="button"
+                onClick={handleLogout} // ✅ fonction que tu as déjà
+              >
+                Oui
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowLogoutModal(false)} // ✅ ferme la modale
+              >
+                Non
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* SOLUTION 1: Vue Carte - Reste avec main-container */}
-      <div className="main-container" style={{ display: currentView === "map" ? "flex" : "none" }}>
+      <div
+        className="main-container"
+        style={{ display: currentView === "map" ? "flex" : "none" }}
+      >
         <div className="sidebar">
           {/* Filtres géographiques */}
           <div className="filter-section">
@@ -205,30 +242,35 @@ const SuperAdminPage = () => {
                   const currentFilters = {
                     region_id: filters.region_id,
                     prefecture_id: filters.prefecture_id,
-                    commune_id: filters.commune_id
+                    commune_id: filters.commune_id,
                   };
-                  
-                  if (JSON.stringify(geoFilters) === JSON.stringify(currentFilters)) {
+
+                  if (
+                    JSON.stringify(geoFilters) ===
+                    JSON.stringify(currentFilters)
+                  ) {
                     return;
                   }
-                  
-                  setFilters(prev => ({
+
+                  setFilters((prev) => ({
                     ...prev,
                     region_id: geoFilters.region_id,
                     prefecture_id: geoFilters.prefecture_id,
-                    commune_id: geoFilters.commune_id
+                    commune_id: geoFilters.commune_id,
                   }));
-                  
+
                   setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent('geographicFilterChanged', {
-                      detail: geoFilters
-                    }));
+                    window.dispatchEvent(
+                      new CustomEvent("geographicFilterChanged", {
+                        detail: geoFilters,
+                      })
+                    );
                   }, 100);
                 }}
                 initialFilters={{
                   region_id: filters.region_id,
                   prefecture_id: filters.prefecture_id,
-                  commune_id: filters.commune_id
+                  commune_id: filters.commune_id,
                 }}
                 showLabels={true}
               />
@@ -263,7 +305,10 @@ const SuperAdminPage = () => {
                 ["ecoles", "Écoles"],
                 ["marches", "Marchés"],
                 ["batiments_administratifs", "Bâtiments administratifs"],
-                ["infrastructures_hydrauliques", "Infrastructures hydrauliques"],
+                [
+                  "infrastructures_hydrauliques",
+                  "Infrastructures hydrauliques",
+                ],
                 ["services_santes", "Services de santé"],
                 ["autres_infrastructures", "Autres infrastructures"],
               ].map(([id, label]) => (
@@ -305,19 +350,13 @@ const SuperAdminPage = () => {
                 ["points_critiques", "Points critiques"],
               ].map(([id, label]) => (
                 <div className="checkbox-item" key={id}>
-                  <input 
-                    type="checkbox" 
-                    id={id}
-                    defaultChecked
-                  />
+                  <input type="checkbox" id={id} defaultChecked />
                   <label htmlFor={id}>{label}</label>
                 </div>
               ))}
             </div>
           </div>
-        </div>  
-
-        
+        </div>
 
         {/* Contenu principal */}
         <div className="map-container">
@@ -334,19 +373,26 @@ const SuperAdminPage = () => {
       </div>
 
       {/* SOLUTION 2: Vue Dashboard - Nouvelle classe spécialisée */}
-      <div 
-        className="view-container dashboard-view" 
+      <div
+        className="view-container dashboard-view"
         style={{ display: currentView === "dashboard" ? "block" : "none" }}
       >
         <Dashboard />
       </div>
 
       {/* SOLUTION 3: Vue Users - Nouvelle classe spécialisée */}
-      <div 
-        className="view-container users-view" 
+      <div
+        className="view-container users-view"
         style={{ display: currentView === "users" ? "block" : "none" }}
       >
         <GestionUserPage />
+      </div>
+      {/* Vue Suivi des données */}
+      <div
+        className="view-container data-tracking-view"
+        style={{ display: currentView === "data-tracking" ? "block" : "none" }}
+      >
+        <DataTrackingPage />
       </div>
     </div>
   );

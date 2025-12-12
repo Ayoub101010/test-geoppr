@@ -72,7 +72,9 @@
 }
 
 /* États de chargement et d'erreur */
-.chart-loading, .chart-empty, .chart-error {
+.chart-loading,
+.chart-empty,
+.chart-error {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -92,8 +94,12 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .chart-error {
@@ -138,8 +144,12 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Modal container */
@@ -249,7 +259,8 @@
   gap: 0.5rem;
 }
 
-.apply-btn, .reset-btn {
+.apply-btn,
+.reset-btn {
   padding: 0.35rem 0.9rem;
   border: none;
   border-radius: 4px;
@@ -570,7 +581,7 @@
     width: 98vw;
     height: 95vh;
   }
-  
+
   .modal-filters {
     flex-direction: column;
     align-items: stretch;
@@ -616,66 +627,69 @@
   .analytics-section {
     padding: 1rem;
   }
-  
+
   .analytics-title {
     font-size: 0.9rem;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.3rem;
   }
-  
+
   .chart-container {
     height: 160px;
   }
-  
-  .chart-loading, .chart-empty, .chart-error {
+
+  .chart-loading,
+  .chart-empty,
+  .chart-error {
     height: 160px;
   }
-  
+
   .chart-modal-container {
     width: 100vw;
     height: 100vh;
     border-radius: 0;
   }
-  
+
   .chart-modal-header {
     padding: 0.8rem 1rem;
   }
-  
+
   .chart-modal-header h3 {
     font-size: 1rem;
   }
-  
+
   .modal-filters {
     padding: 0.8rem 1rem;
     flex-direction: column;
     align-items: stretch;
     gap: 1rem;
   }
-  
+
   .date-range {
     flex-direction: column;
     align-items: stretch;
     gap: 0.3rem;
   }
-  
+
   .date-range input {
     width: 100%;
   }
-  
+
   .filter-actions {
     flex-direction: column;
     width: 100%;
   }
-  
-  .apply-btn, .reset-btn {
+
+  .apply-btn,
+  .reset-btn {
     width: 100%;
   }
-  
+
   .period-info {
     padding: 0.5rem 1rem;
   }
-  
+
   .export-container {
     margin: 0.5rem;
     padding: 1rem;
@@ -728,20 +742,22 @@
   .analytics-title {
     font-size: 0.85rem;
   }
-  
+
   .trend-indicator {
     font-size: 0.7rem;
     padding: 2px 6px;
   }
-  
+
   .chart-container {
     height: 140px;
   }
-  
-  .chart-loading, .chart-empty, .chart-error {
+
+  .chart-loading,
+  .chart-empty,
+  .chart-error {
     height: 140px;
   }
-  
+
   .loading-spinner {
     width: 24px;
     height: 24px;
@@ -779,92 +795,15 @@
 
 /* Animations supplémentaires */
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .chart-loading .loading-spinner {
   animation: spin 1s linear infinite, pulse 2s ease-in-out infinite;
-}
-
-/* Mode sombre (optionnel) */
-@media (prefers-color-scheme: dark) {
-  .analytics-section {
-    background: #2d3748;
-    color: #e2e8f0;
-  }
-  
-  .analytics-title {
-    color: #e2e8f0;
-  }
-  
-  .chart-container {
-    border-color: #4a5568;
-    background: #374151;
-  }
-  
-  .chart-modal-container {
-    background: #2d3748;
-    color: #e2e8f0;
-  }
-  
-  .modal-filters,
-  .period-info {
-    background: #374151;
-    border-color: #4a5568;
-  }
-  
-  .date-range input {
-    background: #374151;
-    color: #e2e8f0;
-    border-color: #4a5568;
-  }
-  
-  .period-display {
-    background: #374151;
-  }
-  
-  .period-display.info {
-    background: #2c5aa0;
-    color: #bee5eb;
-  }
-  
-  .period-display.warning {
-    background: #664d03;
-    color: #ffecb5;
-  }
-  
-  .period-display.error {
-    background: #842029;
-    color: #f8d7da;
-  }
-
-  .export-content-wrapper {
-    background: #2d3748;
-  }
-
-  .export-container {
-    background: #374151;
-  }
-
-  .export-title {
-    color: #e2e8f0;
-  }
-
-  .summary-table {
-    background: #374151;
-    color: #e2e8f0;
-  }
-
-  .summary-table tbody tr:hover {
-    background: #4a5568;
-  }
-
-  .summary-table tbody tr.total-row {
-    background: #4a5568;
-  }
-
-  .summary-table .total-cell {
-    background: #4a5568;
-  }
 }

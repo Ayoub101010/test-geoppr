@@ -5,6 +5,10 @@ from .views import *
 from .spatial_views import *
 from .temporal_views import *
 from .geographic_api import *
+from .update_views import InfrastructureUpdateAPIView
+
+
+
 
 urlpatterns = [
     # ==================== AUTHENTIFICATION ====================
@@ -49,4 +53,11 @@ urlpatterns = [
     
     # ==================== ROUTES SPATIALES ====================
     path('', include('api.spatial_urls')),
+
+    # ==================== MISE A JOUR GENERIQUE ====================
+    path(
+        'api/update/<str:table>/<int:fid>/',
+        InfrastructureUpdateAPIView.as_view(),
+        name='api-update-infrastructure',
+    ),
 ]

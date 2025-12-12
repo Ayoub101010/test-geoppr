@@ -593,7 +593,6 @@ superadmin-wrapper {
 .superadmin-wrapper .main-container {
   height: calc(100vh - 80px);
   overflow: hidden;
- 
 }
 
 /* Sidebar avec scroll interne seulement */
@@ -651,7 +650,7 @@ superadmin-wrapper {
   color: white;
   font-size: 14px; /* ✅ Police plus petite */
   height: 50px; /* ✅ Hauteur fixe réduite */
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .map-title {
@@ -684,8 +683,8 @@ superadmin-wrapper {
 .export-btn {
   padding: 6px 12px; /* ✅ Bouton plus compact */
   font-size: 12px;
-  background: rgba(255,255,255,0.2);
-  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   color: white;
   border-radius: 4px;
   cursor: pointer;
@@ -709,4 +708,3 @@ superadmin-wrapper {
 .superadmin-wrapper .main-container[style*="flex"] {
   display: flex !important;
 }
-
